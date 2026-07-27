@@ -1,8 +1,99 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { MDXRemote } from 'next-mdx-remote/rsc'
+import remarkGfm from 'remark-gfm'
 import { highlight } from 'sugar-high'
 import React from 'react'
+
+function MarkdownTable({
+  className = '',
+  ...props
+}: React.ComponentProps<'table'>) {
+  return (
+    <div className="my-8 w-full overflow-x-auto">
+      <table
+        className={`w-full min-w-[680px] border-collapse text-left text-sm leading-6 ${className}`.trim()}
+        {...props}
+      />
+    </div>
+  )
+}
+
+function MarkdownTableHead(props: React.ComponentProps<'thead'>) {
+  return <thead className="border-b border-[var(--border)]" {...props} />
+}
+
+function MarkdownTableHeader(props: React.ComponentProps<'th'>) {
+  return (
+    <th
+      className="px-4 py-3 font-semibold text-[var(--text-primary)] first:pl-0"
+      {...props}
+    />
+  )
+}
+
+function MarkdownTableBody(props: React.ComponentProps<'tbody'>) {
+  return (
+    <tbody className="divide-y divide-[var(--border)]" {...props} />
+  )
+}
+
+function MarkdownTableRow(props: React.ComponentProps<'tr'>) {
+  return <tr className="align-top" {...props} />
+}
+
+function MarkdownTableCell(props: React.ComponentProps<'td'>) {
+  return (
+    <td
+      className="px-4 py-3 text-[var(--text-secondary)] first:pl-0"
+      {...props}
+    />
+  )
+}
+
+function MarkdownPre(props: React.ComponentProps<'pre'>) {
+  return (
+    <pre
+      className="my-6 overflow-x-auto border border-[var(--border)] bg-[var(--surface)] p-4 font-mono text-sm leading-6"
+      {...props}
+    />
+  )
+}
+
+function MarkdownBlockquote(props: React.ComponentProps<'blockquote'>) {
+  return (
+    <blockquote
+      className="my-8 border-l-2 border-[var(--accent)] pl-5 text-[var(--text-secondary)] italic"
+      {...props}
+    />
+  )
+}
+
+function MarkdownUnorderedList(props: React.ComponentProps<'ul'>) {
+  return <ul className="my-6 list-disc space-y-2 pl-6" {...props} />
+}
+
+function MarkdownOrderedList(props: React.ComponentProps<'ol'>) {
+  return <ol className="my-6 list-decimal space-y-2 pl-6" {...props} />
+}
+
+function MarkdownRule(props: React.ComponentProps<'hr'>) {
+  return (
+    <hr
+      className="my-10 border-0 border-t border-[var(--border)]"
+      {...props}
+    />
+  )
+}
+
+function MarkdownImage(props: React.ComponentProps<'img'>) {
+  return (
+    <img
+      className="my-8 h-auto w-full border border-[var(--border)]"
+      {...props}
+    />
+  )
+}
 
 function Table({ data }) {
   let headers = data.headers.map((header, index) => (
@@ -48,9 +139,15 @@ function RoundedImage(props) {
   return <Image alt={props.alt} className="rounded-lg" {...props} />
 }
 
-function Code({ children, ...props }) {
+function Code({ children, className = '', ...props }) {
   let codeHTML = highlight(children)
-  return <code dangerouslySetInnerHTML={{ __html: codeHTML }} {...props} />
+  return (
+    <code
+      className={`font-mono ${className}`.trim()}
+      dangerouslySetInnerHTML={{ __html: codeHTML }}
+      {...props}
+    />
+  )
 }
 
 function slugify(str) {
@@ -96,6 +193,18 @@ let components = {
   Image: RoundedImage,
   a: CustomLink,
   code: Code,
+  table: MarkdownTable,
+  thead: MarkdownTableHead,
+  th: MarkdownTableHeader,
+  tbody: MarkdownTableBody,
+  tr: MarkdownTableRow,
+  td: MarkdownTableCell,
+  pre: MarkdownPre,
+  blockquote: MarkdownBlockquote,
+  ul: MarkdownUnorderedList,
+  ol: MarkdownOrderedList,
+  hr: MarkdownRule,
+  img: MarkdownImage,
   Table,
 }
 
@@ -103,6 +212,11 @@ export function CustomMDX(props) {
   return (
     <MDXRemote
       {...props}
+      options={{
+        mdxOptions: {
+          remarkPlugins: [remarkGfm],
+        },
+      }}
       components={{ ...components, ...(props.components || {}) }}
     />
   )

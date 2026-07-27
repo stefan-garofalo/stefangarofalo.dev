@@ -65,7 +65,7 @@ export default async function Blog({ params }: Props) {
   }
 
   return (
-    <section>
+    <section className="relative z-40 [font-family:var(--font-geist-sans)]">
       <script
         type="application/ld+json"
         suppressHydrationWarning

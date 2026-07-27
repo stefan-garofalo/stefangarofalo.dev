@@ -1,8 +1,9 @@
 import './global.css'
 import type { Metadata } from 'next'
 import { JetBrains_Mono } from 'next/font/google'
+import { GeistSans } from 'geist/font/sans'
 import { Navbar } from './components/nav'
-import { Analytics } from '@vercel/analytics/react'
+import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import Footer from './components/footer'
 import { baseUrl } from './sitemap'
@@ -49,11 +50,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`dark ${jetBrainsMono.variable}`}>
+    <html
+      lang="en"
+      className={`dark ${GeistSans.variable} ${jetBrainsMono.variable}`}
+    >
       <body>
         <main className="mx-auto flex min-h-dvh w-full max-w-[1560px] flex-col px-[clamp(24px,3vw,48px)] max-[767px]:px-5">
           <Navbar />
-          <div className="flex min-w-0 flex-1 flex-col [&>section:not(.home-page)]:mx-auto [&>section:not(.home-page)]:mt-14 [&>section:not(.home-page)]:mb-20 [&>section:not(.home-page)]:w-full [&>section:not(.home-page)]:max-w-[640px] max-[767px]:[&>section:not(.home-page)]:mt-10 max-[767px]:[&>section:not(.home-page)]:mb-[72px]">
+          <div className="flex min-w-0 flex-1 flex-col [&>section:not(.home-page)]:mx-auto [&>section:not(.home-page)]:mt-14 [&>section:not(.home-page)]:mb-20 [&>section:not(.home-page)]:w-full [&>section:not(.home-page)]:max-w-[800px] max-[767px]:[&>section:not(.home-page)]:mt-10 max-[767px]:[&>section:not(.home-page)]:mb-[72px]">
             {children}
           </div>
           <Footer />

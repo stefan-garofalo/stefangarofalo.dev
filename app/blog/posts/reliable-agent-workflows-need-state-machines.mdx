@@ -26,7 +26,7 @@ Three ideas organize the architecture. **Graph topology** defines the routes tha
 
 A gate may invoke narrower skills internally, yet it retains responsibility for accepting their output, validating the result, and returning one outcome. Internal execution can vary while validation and routing responsibility stay at this actor-like boundary, which does not imply an actor runtime.
 
-## Topology defines the routes; guards choose among them
+## Guards determine which transition can run next
 
 A small coding graph makes the distinction concrete:
 
