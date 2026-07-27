@@ -46,7 +46,7 @@ function fbm(x: number, y: number) {
   let total = 0
   let normalizer = 0
 
-  for (let octave = 0; octave < 3; octave += 1) {
+  for (let octave = 0; octave < 4; octave += 1) {
     total += valueNoise(x, y) * amplitude
     normalizer += amplitude
     x = x * 2.03 + 13.1
@@ -69,31 +69,31 @@ function fillBaseField(
 
     for (let column = 0; column < columns; column += 1) {
       const domainWarp =
-        Math.sin(column * 0.029 + row * 0.017 + phase * 0.18) * 2.4 +
-        Math.sin(row * 0.041 - phase * 0.13) * 1.8
+        Math.sin(column * 0.029 + row * 0.017 + phase * 0.52) * 4.2 +
+        Math.sin(row * 0.041 - phase * 0.39) * 3.4
       const coherentNoise = fbm(
-        (column + domainWarp * 2.8) * 0.052 + phase * 0.024,
-        (row - domainWarp * 1.7) * 0.052 - phase * 0.017
+        (column + domainWarp * 4) * 0.085 + phase * 0.13,
+        (row - domainWarp * 2.8) * 0.085 - phase * 0.095
       )
       const broadContour = Math.sin(
         column * 0.058 +
           row * 0.12 +
           domainWarp * 0.7 +
-          coherentNoise * 2.2 +
-          phase * 0.14
+          coherentNoise * 3.4 +
+          phase * 0.38
       )
       const crossingContour = Math.sin(
         column * 0.024 -
           row * 0.071 +
-          coherentNoise * 2.8 -
-          phase * 0.09
+          coherentNoise * 4 -
+          phase * 0.29
       )
       const value =
         0.5 +
-        envelope * 0.06 +
-        coherentNoise * 0.3 +
-        broadContour * 0.17 +
-        crossingContour * 0.13
+        envelope * 0.025 +
+        coherentNoise * 0.55 +
+        broadContour * 0.2 +
+        crossingContour * 0.16
 
       field[row * columns + column] = clamp(value, 0, 1)
     }

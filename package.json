@@ -21,5 +21,9 @@
     "sugar-high": "^0.6.0",
     "tailwindcss": "4.0.0-alpha.13",
     "typescript": "^5"
+  },
+  "devDependencies": {
+    "oxlint": "1.74.0",
+    "ultracite": "7.9.4"
   }
 }
