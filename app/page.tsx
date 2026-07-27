@@ -3,21 +3,8 @@ import { getBlogPosts } from 'app/blog/utils'
 import { AsciiRippleField } from './components/ascii-ripple-field'
 import { ShadowGradient } from './components/shadow-gradient'
 
-const homepageFallbackPost: ReturnType<typeof getBlogPosts>[number] = {
-  slug: '',
-  metadata: {
-    title: 'Working with AI coding agents in real codebases',
-    publishedAt: '2026-07-27',
-    summary:
-      'Practical notes on keeping AI-assisted development grounded in real code and verification.',
-  },
-  content: '',
-}
-
 export default function Page() {
   const posts = getBlogPosts()
-  const homepagePosts =
-    posts.length > 0 ? posts : [homepageFallbackPost]
 
   return (
     <section className="home-page relative left-1/2 -ml-[50vw] flex w-screen flex-1 flex-col">
@@ -50,11 +37,14 @@ export default function Page() {
         />
         <div className="pointer-events-auto relative z-20 mx-auto w-full max-w-[1560px] px-[clamp(24px,3vw,48px)] pt-56 max-[767px]:px-5 max-[767px]:pt-40">
           <div className="mb-8 max-w-[720px]">
-            <h2 className="relative z-20 m-0 text-lg font-medium tracking-[-0.025em]">
+            <h2
+              className="relative z-20 m-0 text-lg font-medium tracking-[-0.025em]"
+              id="articles"
+            >
               Articles
             </h2>
           </div>
-          <BlogPosts posts={homepagePosts} />
+          <BlogPosts posts={posts} />
         </div>
       </div>
     </section>
