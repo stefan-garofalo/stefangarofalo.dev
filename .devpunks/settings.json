@@ -1,0 +1,18 @@
+{
+  "backlogProvider": "github",
+  "assetProviderSlug": "github",
+  "backlogProjectUrl": "https://github.com/users/stefan-garofalo/projects/4",
+  "baselineVersion": "2.6.2",
+  "cliVersion": "2.6.2",
+  "repositoryManager": "github",
+  "requiredTools": [
+    "agent-browser",
+    "clawpatch",
+    "debug-agent",
+    "gh",
+    "opensrc",
+    "portless",
+    "skills",
+    "stack"
+  ]
+}

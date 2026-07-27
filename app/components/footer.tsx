@@ -1,70 +1,53 @@
-function ArrowIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M2.07102 11.3494L0.963068 10.2415L9.2017 1.98864H2.83807L2.85227 0.454545H11.8438V9.46023H10.2955L10.3097 3.09659L2.07102 11.3494Z"
-        fill="currentColor"
-      />
-    </svg>
-  )
-}
+import { ShadowGradient } from './shadow-gradient'
 
 export default function Footer() {
   return (
-    <footer className="mb-16">
-      <ul className="font-sm mt-8 flex flex-row space-x-4 text-neutral-600 dark:text-neutral-300">
+    <footer className="relative z-20 isolate flex items-center justify-between gap-6 border-t border-[var(--border)] pt-[30px] pb-10 text-xs text-[var(--text-secondary)] max-[767px]:flex-col max-[767px]:items-start">
+      <ShadowGradient
+        className="right-1/2 bottom-0 h-[220px] w-screen translate-x-1/2 max-[767px]:h-[184px]"
+        direction="to-top"
+      />
+      <ul className="relative z-20 m-0 flex list-none gap-[22px] p-0 max-[767px]:flex-wrap max-[767px]:gap-x-5 max-[767px]:gap-y-3">
         <li>
           <a
-            className="flex items-center transition-all hover:text-neutral-800 dark:hover:text-neutral-100"
+            className="no-underline transition-colors hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[5px] focus-visible:outline-[var(--text-secondary)] motion-reduce:transition-none"
             rel="noopener noreferrer"
             target="_blank"
             href="https://x.com/stefangarofalo"
           >
-            <ArrowIcon />
-            <p className="ml-2 h-7">x</p>
+            x
           </a>
         </li>
         <li>
           <a
-            className="flex items-center transition-all hover:text-neutral-800 dark:hover:text-neutral-100"
+            className="no-underline transition-colors hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[5px] focus-visible:outline-[var(--text-secondary)] motion-reduce:transition-none"
             rel="noopener noreferrer"
             target="_blank"
             href="https://github.com/stefan-garofalo"
           >
-            <ArrowIcon />
-            <p className="ml-2 h-7">github</p>
+            github
           </a>
         </li>
         <li>
           <a
-            className="flex items-center transition-all hover:text-neutral-800 dark:hover:text-neutral-100"
+            className="no-underline transition-colors hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[5px] focus-visible:outline-[var(--text-secondary)] motion-reduce:transition-none"
             rel="noopener noreferrer"
             target="_blank"
             href="https://www.linkedin.com/in/stefan-garofalo/"
           >
-            <ArrowIcon />
-            <p className="ml-2 h-7">linkedin</p>
+            linkedin
           </a>
         </li>
-        <li className="ml-auto">
+        <li>
           <a
-            className="flex items-center transition-all hover:text-neutral-800 dark:hover:text-neutral-100"
-            rel="noopener noreferrer"
-            target="_blank"
+            className="no-underline transition-colors hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[5px] focus-visible:outline-[var(--text-secondary)] motion-reduce:transition-none"
             href="/rss"
           >
-            <ArrowIcon />
-            <p className="ml-2 h-7">rss</p>
+            rss
           </a>
         </li>
       </ul>
-      <p className="mt-8 text-neutral-600 dark:text-neutral-300">
+      <p className="relative z-20 m-0">
         © {new Date().getFullYear()} Stefan Garofalo
       </p>
     </footer>

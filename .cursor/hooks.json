@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/scaffold-update-check.mjs cursor",
+        "timeout": 60000
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "node .cursor/hooks/format-edited-file.mjs cursor"
+      }
+    ]
+  }
+}

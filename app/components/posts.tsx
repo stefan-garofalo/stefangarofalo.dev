@@ -1,12 +1,16 @@
 import Link from 'next/link'
 import { formatDate, getBlogPosts } from 'app/blog/utils'
 
-export function BlogPosts() {
-  let allBlogs = getBlogPosts()
+type BlogPostsProps = {
+  posts?: ReturnType<typeof getBlogPosts>
+}
+
+export function BlogPosts({ posts }: BlogPostsProps = {}) {
+  const allBlogs = posts ?? getBlogPosts()
 
   return (
-    <div>
-      {allBlogs
+    <div className="relative z-20 w-full max-w-[720px]">
+      {[...allBlogs]
         .sort((a, b) => {
           if (
             new Date(a.metadata.publishedAt) > new Date(b.metadata.publishedAt)
@@ -18,14 +22,14 @@ export function BlogPosts() {
         .map((post) => (
           <Link
             key={post.slug}
-            className="flex flex-col space-y-1 mb-4"
+            className="group relative isolate mb-4 flex flex-col space-y-1 text-[var(--text-primary)] no-underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[6px] focus-visible:outline-[var(--text-secondary)]"
             href={`/blog/${post.slug}`}
           >
-            <div className="w-full flex flex-col md:flex-row space-x-0 md:space-x-2">
-              <p className="text-neutral-600 dark:text-neutral-400 w-[100px] tabular-nums">
+            <div className="relative z-20 flex w-full flex-col space-x-0 md:flex-row md:space-x-2">
+              <p className="w-[100px] tabular-nums text-[var(--text-secondary)] transition-colors group-hover:text-[var(--text-primary)] group-focus-visible:text-[var(--text-primary)] motion-reduce:transition-none">
                 {formatDate(post.metadata.publishedAt, false)}
               </p>
-              <p className="text-neutral-900 dark:text-neutral-100 tracking-tight">
+              <p className="tracking-tight text-[var(--text-primary)]">
                 {post.metadata.title}
               </p>
             </div>

@@ -1,0 +1,40 @@
+{
+  "name": "@repo/wiki",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node ./scripts/sync-content.mjs && fumadocs-mdx && next build",
+    "check": "oxlint . && oxfmt --check .",
+    "check-types": "node ./scripts/sync-content.mjs && fumadocs-mdx && next typegen && node --input-type=module -e \"await import(new URL('./bin/tsc', import.meta.resolve('@typescript/native/package.json')))\" -- tsc --noEmit",
+    "dev": "next dev --turbopack --port=4000",
+    "postinstall": "fumadocs-mdx",
+    "start": "next start"
+  },
+  "dependencies": {
+    "fumadocs-core": "16.8.7",
+    "fumadocs-mdx": "14.3.2",
+    "fumadocs-ui": "16.8.7",
+    "lucide-react": "^1.14.0",
+    "mermaid": "11.15.0",
+    "next": "16.2.4",
+    "next-themes": "0.4.6",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "postcss": "^8.5.13",
+    "tailwindcss": "^4.2.4",
+    "typescript": "npm:typescript@^6.0.2",
+    "ultracite": "latest"
+  }
+}

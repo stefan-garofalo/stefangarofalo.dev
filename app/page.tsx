@@ -1,17 +1,61 @@
 import { BlogPosts } from 'app/components/posts'
+import { getBlogPosts } from 'app/blog/utils'
+import { AsciiRippleField } from './components/ascii-ripple-field'
+import { ShadowGradient } from './components/shadow-gradient'
+
+const homepageFallbackPost: ReturnType<typeof getBlogPosts>[number] = {
+  slug: '',
+  metadata: {
+    title: 'Working with AI coding agents in real codebases',
+    publishedAt: '2026-07-27',
+    summary:
+      'Practical notes on keeping AI-assisted development grounded in real code and verification.',
+  },
+  content: '',
+}
 
 export default function Page() {
+  const posts = getBlogPosts()
+  const homepagePosts =
+    posts.length > 0 ? posts : [homepageFallbackPost]
+
   return (
-    <section>
-      <h1 className="mb-8 text-2xl font-semibold tracking-tighter">
-        Stefan Garofalo
-      </h1>
-      <p className="mb-4">
-        I write practical technical articles about software engineering and
-        AI-assisted development.
-      </p>
-      <div className="my-8">
-        <BlogPosts />
+    <section className="home-page relative left-1/2 -ml-[50vw] flex w-screen flex-1 flex-col">
+      <div className="home-hero relative isolate min-h-[calc(112.5dvh-72px)] max-[767px]:min-h-[calc(112.5dvh-64px)]">
+        <AsciiRippleField />
+        <div className="relative z-20 mx-auto flex min-h-[calc(112.5dvh-72px)] w-full max-w-[1560px] items-start px-[clamp(24px,3vw,48px)] pt-[calc(28.125dvh_-_18px)] max-[767px]:min-h-[calc(112.5dvh-64px)] max-[767px]:px-5 max-[767px]:pt-[calc(28.125dvh_-_16px)]">
+          <div className="relative isolate w-full max-w-[560px]">
+            <ShadowGradient
+              className="-inset-y-[72px] -left-12 -right-60 max-[960px]:-right-6 max-[960px]:-left-6 max-[767px]:-inset-y-12 max-[767px]:-right-5 max-[767px]:-left-5"
+              direction="to-right"
+            />
+            <h1 className="relative z-20 m-0 whitespace-nowrap text-[clamp(30px,2.3vw,40px)] leading-[0.98] font-semibold tracking-[-0.065em] max-[767px]:whitespace-normal max-[767px]:text-[clamp(28px,8vw,36px)]">
+              Stefan Garofalo
+            </h1>
+            <p className="relative z-20 mt-6 mb-0 max-w-[46ch] text-[clamp(13px,1vw,15px)] leading-[1.7] text-[var(--text-secondary)] max-[767px]:max-w-[38ch] max-[767px]:text-[13px]">
+              I write practical technical articles about software engineering
+              and AI-assisted development.
+            </p>
+            <span
+              className="relative z-20 mt-7 block h-[3px] w-16 bg-[var(--accent)] max-[767px]:mt-6 max-[767px]:w-[52px]"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="pointer-events-none relative isolate -mt-40 min-h-[70dvh] w-full pb-24 max-[767px]:-mt-28 max-[767px]:pb-[72px]">
+        <ShadowGradient
+          className="inset-x-0 top-0 h-40 max-[767px]:h-28"
+          direction="to-top"
+        />
+        <div className="pointer-events-auto relative z-20 mx-auto w-full max-w-[1560px] px-[clamp(24px,3vw,48px)] pt-56 max-[767px]:px-5 max-[767px]:pt-40">
+          <div className="mb-8 max-w-[720px]">
+            <h2 className="relative z-20 m-0 text-lg font-medium tracking-[-0.025em]">
+              Articles
+            </h2>
+          </div>
+          <BlogPosts posts={homepagePosts} />
+        </div>
       </div>
     </section>
   )

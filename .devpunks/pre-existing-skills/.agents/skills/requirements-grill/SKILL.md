@@ -1,0 +1,44 @@
+---
+name: requirements-grill
+description: Requirements grilling with durable branch artifacts, glossary/axiom decisions, and optional wiki synthesis. Use when the user wants product or architecture requirements discovery, a long design interview, branch-by-branch decision closure, canonical terminology, compaction-safe grill logs/status updates, or wiki synthesis from closed grill decisions.
+---
+
+# Requirements Grill
+
+Use this skill to turn uncertain product, architecture, or implementation ideas into pinned requirements, canonical glossary, and domain axioms that can feed backlog/user-story creation.
+
+This skill blends the shared `$grilling` primitive with durable artifacts. Use `$grilling` for live interview behavior; use `requirements-grill` when the result must survive as routed grill log/status/wiki knowledge.
+
+This skill has three scoped references:
+
+- Live grilling behavior: use `$grilling`, then see [references/grilling-flow.md](references/grilling-flow.md) for requirements-specific pressure tests
+- Durable grill artifacts: see [references/artifact-output.md](references/artifact-output.md)
+- Wiki synthesis from closed grill branches: see [references/wiki-output.md](references/wiki-output.md)
+
+## Quick Routing
+
+Use active grilling when the user is still iterating on requirements, terminology, tradeoffs, branch closure, or status percentages. During a serious grilling session, load both `grilling-flow` and `artifact-output`; the interview and durable artifacts move together.
+
+Use wiki synthesis when the user asks to turn closed grill decisions into high-level routed wiki flows/concepts, or sync domain knowledge from grill artifacts.
+
+Both workflows can happen in one long session, but keep the responsibilities distinct:
+
+- `<wiki-root>/content/docs/project/grilling/<topic>-grill-log.md` and `<topic>-grill-status.md` are the detailed requirements and glossary record
+- other routed `<wiki-root>/content/docs/project/` pages are the synthesized project knowledge surface
+- backlog/user-story creation is the next phase after the grill gate, outside this skill's scope
+
+## Core Behavior
+
+- Inspect relevant routed learning artifacts before grilling requirements that depend on known behavior, prior bugs, project conventions, or domain facts.
+- Challenge conflicting glossary, vague terms, and hidden tradeoffs immediately.
+- Pin canonical terms, rejected aliases, relationships, and domain axioms as decisions crystallize.
+- Prefer conservative defaults once enough context exists.
+- If the user authorizes auto-pinning defaults, record obvious remaining defaults without needless extra questions.
+- Treat parked branches as preserved knowledge, not deleted scope.
+- Apply the round persistence contract in `artifact-output` alongside `$grilling`.
+
+## Handoff
+
+At the end, report branch percentages, parked branches, remaining non-design validation work, and the recommended next planning direction.
+
+After `$grilling` completes, say the requirements grill is done and give the likely next direction, usually backlog/user-story creation.

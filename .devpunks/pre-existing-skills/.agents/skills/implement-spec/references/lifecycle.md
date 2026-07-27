@@ -1,0 +1,220 @@
+# Implement Spec Lifecycle
+
+## Shared contract
+
+`implement-spec` is the only public execution entrypoint.
+
+It routes to one of two approaches:
+
+- `sequential` — one implementation worker, parent orchestration, parent validation
+- `parallel` — wave-based execution with explicit worker orchestration
+
+Do not recreate wrapper skills for these modes. Keep the routing here and load only the needed mode reference.
+
+## 1. Require an existing reviewed spec folder
+
+Execution must stay grounded in the first matching spec folder:
+
+1. `apps/wiki/content/docs/project/specs/<domain>/<spec>/`
+2. `apps/wiki/specs/<domain>/<spec>/`
+3. `docs/specs/<domain>/<spec>/`
+
+Required files:
+
+- `SPEC.md`
+- `PLAN.md`
+
+If `SPEC.md` is missing, stop and report the resolved path error.
+
+If `PLAN.md` is missing, stop and use `create-plan`. Do not auto-generate plans from this skill.
+
+## 2. Resolve the target folder
+
+Accept either:
+
+- a domain plus spec folder name
+- a full spec folder path
+- a direct `SPEC.md` or `PLAN.md` path
+
+Normalize to the containing spec folder before doing any work.
+
+## 3. Load the working set
+
+Read, in this order:
+
+1. `apps/wiki/AGENTS.md`
+2. `<resolved-spec-folder>/SPEC.md`
+3. `<resolved-spec-folder>/PLAN.md`
+4. `<resolved-spec-folder>/IMPLEMENTATION-NOTES.md` if present
+5. `docs/reference/tech-debt/<domain>/<spec>.md` if present
+
+If package or framework behavior matters, inspect source with `opensrc --modify false` before guessing.
+
+## 4. Prepare execution notes
+
+Use [../assets/IMPLEMENTATION-NOTES-TEMPLATE.md](../assets/IMPLEMENTATION-NOTES-TEMPLATE.md).
+
+- Create `IMPLEMENTATION-NOTES.md` from the template when missing.
+- Append or refine when it already exists.
+- Keep it current during the run, not only at the end.
+- For UI implementation changes, load [ui-screenshot-evidence.md](ui-screenshot-evidence.md) and keep `## UI Evidence Links` current.
+- For tasks with `runtime_validation: required`, load [runtime-product-validation.md](runtime-product-validation.md) and keep `## Runtime Validation Evidence` current.
+
+## 5. Prepare the tech-debt ledger
+
+Persistent implementation drift belongs in:
+
+`docs/reference/tech-debt/<domain>/<spec>.md`
+
+This file is not a dumping ground for avoidable "later" work.
+
+Default rule: resolve debt immediately when it appears.
+
+Forbidden debt language:
+
+- "do this later"
+- "temporary workaround"
+- "future implementation"
+- "follow-up cleanup"
+- vague TODOs without an owner, decision, and blocker
+
+Use the ledger only for debt that cannot be resolved inside the current run because it is outside the active goal, requires a human product/scope decision, or is blocked by an external dependency.
+
+For every ledger entry, record:
+
+- exact debt
+- why it cannot be resolved now
+- decision needed or external blocker
+- owner or next action
+
+If the debt is inside the active goal, fix it before advancing. If the debt is outside the active goal but affects the implementation decision, stop and run a tiny `$requirements-phase` clarification. Resume execution from its recorded outcome, applying any accepted scope change before continuing.
+
+Do not create the file when nothing durable must survive the run.
+
+## 6. Shared execution invariants
+
+- Mode is manual. The chosen approach decides the execution path.
+- Do not switch modes mid-run unless the user explicitly redirects.
+- Default to `sequential` when the user does not choose a mode.
+- In `sequential`, keep implementation work inside exactly one worker; the parent coordinates, reviews, validates, and finalizes.
+- If worker execution is unavailable, stop and repair worker routing or report the blocker. Do not implement in the parent main thread.
+- Treat every `tdd_target` as required RED-first behavior, never optional guidance.
+- Treat `tdd_status`, `red_command`, `expected_red_failure`, `green_command`, `reason_not_testable`, `red_evidence`, and `green_evidence` as the task completion contract.
+- Treat `codebase_design_notes` as required design context for code-structure changes. Verify the implemented interface, seam, adapter strategy, and test surface match it, or update the notes with the real decision.
+- For behavior-changing tasks, do not mark a task complete until real RED and GREEN evidence is recorded in `PLAN.md`.
+- Accept missing RED/GREEN evidence only when the task has an explicit `reason_not_testable` or `tdd_status: not_applicable`.
+- Do not accept `reason_not_testable` for forgotten RED. If code came first, recover by writing the public-result RED test, recording failure, patching to pass, and marking `tdd_status: recovered`.
+- Treat every `review_mode` as required validation routing, never optional metadata.
+- Treat `runtime_validation`, `runtime_target`, `runtime_evidence`, and `runtime_cleanup` as a task completion contract orthogonal to `review_mode`.
+- When `runtime_validation: required`, do not mark the task complete until the supported runtime has conclusive public-entrypoint-first evidence recorded under `## Runtime Validation Evidence`.
+- An exact runtime blocker is an honest blocked result, not completion. Record it and keep the affected task and acceptance criterion blocked.
+- Keep an operator-visible execution board in the conversation so progress is obvious.
+- Keep scope discipline. Out-of-scope findings that do not affect the current implementation go to `IMPLEMENTATION-NOTES.md`, not silent scope creep.
+- Never leave sloppy debt, TODO placeholders, temporary compromises, or "later" implementation notes for in-goal work.
+- When unclear debt affects the current implementation and the answer is not already in the spec/plan/backlog, pause for a tiny `$requirements-phase` clarification instead of guessing.
+- If backlog sync is part of the run, keep epic and story bodies product-facing.
+- Execution-time backlog sync may use comments, links, native status, and native relations.
+- Never rewrite epic or story bodies with task ids, TDD targets, validation commands, or file lists.
+
+## 7. Shared upkeep after each completed unit
+
+After each completed task or wave:
+
+- update `PLAN.md` status
+- append a concise execution log in `PLAN.md`
+- record touched files in `PLAN.md`
+- fill `red_evidence` and `green_evidence`, or the accepted non-testable reason, before marking behavior-changing work complete
+- fill or reconcile `codebase_design_notes` when module shape, seam placement, adapters, or test surface changed
+- update `IMPLEMENTATION-NOTES.md` with non-obvious decisions, surprises, or deviations
+- for UI implementation changes, record durable before/after screenshot asset links in `IMPLEMENTATION-NOTES.md`
+- for required runtime validation, record the scenario, public action, correlation or provenance ids, observed result, durable evidence, cleanup, and status or exact blocker in `IMPLEMENTATION-NOTES.md`
+- resolve any in-goal debt before advancing
+- update the spec-linked tech-debt file only for blocked or explicitly parked debt with exact owner/next action
+- if backlog sync is in scope, prefer native metadata changes or concise comments over body rewrites
+
+## 8. Handle blockers honestly
+
+If a task is blocked:
+
+1. record it in `IMPLEMENTATION-NOTES.md`
+2. update the spec-linked tech-debt file only when the blocker creates durable unresolved debt
+3. skip only tasks truly blocked by it
+4. finish all remaining reachable work
+5. report blocked tasks clearly at the end
+
+Do not fake completion.
+
+## 9. Apply runtime-aware validation
+
+Use the task `review_mode`:
+
+- `cli`: tests, commands, type-checks, API calls, or non-visual checks
+- `browser`: browser validation through `$agent-browser`
+- `mixed`: both
+
+If running inside a worktree and `portless` is available, prefer it for server-based validation to avoid port conflicts.
+
+For UI implementation changes, runtime validation must also follow [ui-screenshot-evidence.md](ui-screenshot-evidence.md).
+
+For every task with `runtime_validation: required`, follow [runtime-product-validation.md](runtime-product-validation.md). Automated checks alone do not satisfy this gate.
+
+## 10. Verify acceptance criteria
+
+Re-read `SPEC.md` acceptance criteria and mark each one:
+
+- met
+- unmet
+- blocked
+
+Record a reason for every unmet or blocked item in `IMPLEMENTATION-NOTES.md`.
+
+Acceptance that depends on required runtime validation is `met` only when its recorded evidence is conclusive. An exact blocker makes it `blocked`.
+
+## 11. Write the manual review checklist
+
+Before finalization, `IMPLEMENTATION-NOTES.md` must contain `## Manual Review Checklist`.
+
+This section is a user handoff checklist, not an agent completion tracker. Derive it from completed tasks, `review_mode`, `tdd_target`, acceptance criteria, touched public surfaces, deviations, and risky integrations.
+
+Use exactly this table shape:
+
+| Area | Check | How to perform | Expected result |
+|------|-------|----------------|-----------------|
+
+Rules:
+
+- Browser or mixed review tasks must include concrete user flows to try end to end.
+- CLI review tasks must include exact commands, fixtures, or scenarios the user can rerun.
+- Include manual-only checks for product behavior, visual review, integration smoke, tracker/docs review, or anything automation cannot prove.
+- Empty checklist sections are invalid.
+- If no manual review applies, write one explicit row explaining why there is no user-verifiable surface.
+
+## 12. Finalize the spec folder
+
+Before reporting back:
+
+- remove empty sections from `IMPLEMENTATION-NOTES.md`
+- ensure **Execution mode** reflects the mode actually used
+- ensure **Sanity checks** lists only commands actually run
+- ensure **UI Evidence Links** has durable before/after asset links for UI implementation changes, or an explicit reason no pair was possible
+- ensure **Runtime Validation Evidence** contains conclusive proof for every required task, or an exact blocker with the task and acceptance criterion still marked blocked
+- ensure **Manual Review Checklist** has at least one concrete row, or one explicit non-applicability row
+- ensure **Remaining work** matches any unmet or blocked criteria
+- ensure no in-goal debt remains as TODO, follow-up cleanup, or vague later-work text
+- ensure every tech-debt ledger entry has exact blocker/decision/owner/next action
+- set `SPEC.md` frontmatter `status: implemented`
+- set `PLAN.md` `**Status:** Complete` when that line exists
+- ensure the PR body, PR comment, or PR-ready handoff snippet includes the same UI evidence links when UI changed
+
+## 13. Final report shape
+
+Summarize:
+
+- implementation status
+- validation results
+- key deviations or surprises
+- acceptance-criteria status
+- runtime-validation evidence and exact blockers
+- manual review checklist
+- blocked tasks needing input
+- whether the spec-linked tech-debt file was created or updated
