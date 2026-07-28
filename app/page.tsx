@@ -12,7 +12,7 @@ export default function Page() {
         className="home-hero relative isolate min-h-[calc(112.5lvh-72px)] max-[767px]:min-h-[calc(112.5lvh-64px)]"
         data-ascii-interaction-surface
       >
-        <AsciiRippleField />
+        <AsciiRippleField background="forest" />
         <div className="relative z-20 mx-auto flex min-h-[calc(112.5lvh-72px)] w-full max-w-[1560px] items-start px-[clamp(24px,3vw,48px)] pt-[calc(28.125lvh_-_18px)] max-[767px]:min-h-[calc(112.5lvh-64px)] max-[767px]:px-5 max-[767px]:pt-[calc(28.125lvh_-_16px)]">
           <div className="relative isolate w-full max-w-[560px]">
             <ShadowGradient

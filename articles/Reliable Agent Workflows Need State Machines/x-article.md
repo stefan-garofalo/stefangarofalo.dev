@@ -14,7 +14,7 @@ A persisted checklist can record progress through a fixed sequence, yet it canno
 
 The skill architecture proposed here encodes a **Durable Workflow Graph**. This contract declares: gates, guarded edges, handoff requirements, and a terminal condition.
 
-After a gate finishes, its handoff records the outcome and evidence the router needs to determine which routes are now available. The workflow definition and gate contracts tell the model to inspect the current evidence, choose a permitted route, and write a handoff before it stops.
+After a gate finishes, its handoff records the outcome and evidence the router needs to determine which routes are now available. The router inspects current evidence and chooses a permitted route from the workflow definition, while each gate must write a handoff before returning control.
 
 If the workflow also needs guarantees that two agents cannot write at once, that one gate finishes before another begins, or that a handoff is saved atomically, those guarantees must come from the system running the skill.
 
@@ -24,7 +24,7 @@ Three ideas organize the architecture.
 
 **State-machine semantics** determine which transition is legal for the run’s current state.
 
-An **actor-like gate boundary** assigns one owner to the work, its validation, and the domain outcome returned to the router. The architecture keeps these three responsibilities separate.
+An **actor-like gate boundary** assigns one owner to the work, its validation, and the domain outcome returned to the router. The architecture keeps graph topology, state-machine semantics, and gate ownership separate.
 
 A gate may invoke narrower skills internally, yet it retains responsibility for accepting their output, validating the result, and returning one outcome. Internal execution can vary while validation and routing responsibility stay at this actor-like boundary, which does not imply an actor runtime.
 
@@ -70,7 +70,7 @@ The invocation ends before review begins. On resume, the router confirms that th
 
 The review gate completes, but its handoff records an in-scope blocker, so the guard routes the workflow back to implementation.
 
-Implementation creates revision `r2` within the same workflow run.
+Implementation changes the code to address the blocker, creating revision `r2` within the same workflow run.
 
 The new code invalidates code, test, and review evidence tied to `r1`; the plan carries forward only after its scope and dependencies are revalidated against `r2`. Implementation reruns validation and records a new handoff, then the router sends `r2` through review.
 

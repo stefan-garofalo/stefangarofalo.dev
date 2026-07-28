@@ -1,14 +1,37 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import {
+  FOREST_ASCII_HEIGHT,
+  FOREST_ASCII_LINES,
+  FOREST_ASCII_WIDTH,
+} from './ascii-forest-data'
 
 const TERRAIN_GLYPHS = ['.', ':', '-', '=', '+', '*', '#', '%', '@'] as const
+const FOREST_GLYPHS = [
+  ' ',
+  '.',
+  ':',
+  '-',
+  '=',
+  '+',
+  '*',
+  '#',
+  '%',
+  '@',
+] as const
+const FOREST_DETAIL_GLYPHS = ['.', ':', '/', '+', '*', '#'] as const
+const FOREST_SOURCE_RAMP = ' .,:;i1tIl|!+~=<>*#MW&%@$█▓▒░☺☻♥♦♣♠'
 const RIPPLE_FRAME_INTERVAL = 1000 / 30
 const AMBIENT_FRAME_INTERVAL = 1000 / 9
 const AMBIENT_PHASE_SPEED = 2.5
+const FOREST_FRAME_INTERVAL = 1000 / 12
+const FOREST_CELL_ASPECT = 0.56
 const DAMPING = 0.96
 const SETTLED_ENERGY = 0.003
 const ASCII_INK = '#5e605b'
+const FOREST_INK = '#7b7d76'
+const FOREST_DETAIL_INK = '#b0b2aa'
 const BASE_GLYPH_SIZE = 10
 const DISTURBANCE_RADIUS = 10
 const DISTURBANCE_STRENGTH = 3.6
@@ -21,7 +44,7 @@ const MOBILE_TOUCH_FRAME_INTERVAL = 1000 / 20
 const ROUTE_INK = '#b8a0d9'
 const TOPOGRAPHY_INK = '#70726b'
 
-export type AsciiBackground = 'terrain' | 'topography'
+export type AsciiBackground = 'forest' | 'terrain' | 'topography'
 
 type AsciiRippleFieldProps = {
   background?: AsciiBackground
@@ -35,6 +58,17 @@ type TopographyCell = {
   glyph: string
   lensGlyph?: string
   size: number
+}
+
+type ForestCell = {
+  density: number
+  detail: number
+  edge: number
+  index: number
+  phase: number
+  wind: number
+  x: number
+  y: number
 }
 
 type TopographyPeak = {
@@ -562,6 +596,126 @@ function glyphFor(value: number) {
   return TERRAIN_GLYPHS[glyphIndex]
 }
 
+function forestGlyphFor(density: number) {
+  const glyphIndex = Math.min(
+    FOREST_GLYPHS.length - 1,
+    Math.floor(clamp(density, 0, 1) * FOREST_GLYPHS.length)
+  )
+
+  return FOREST_GLYPHS[glyphIndex]
+}
+
+function forestDetailGlyphFor(detail: number) {
+  if (detail < 0.045) return ''
+
+  const glyphIndex = Math.min(
+    FOREST_DETAIL_GLYPHS.length - 1,
+    Math.floor(
+      clamp((detail - 0.045) / 0.65, 0, 1) *
+        FOREST_DETAIL_GLYPHS.length
+    )
+  )
+
+  return FOREST_DETAIL_GLYPHS[glyphIndex]
+}
+
+function forestSourceLuminance(glyph: string) {
+  const index = FOREST_SOURCE_RAMP.indexOf(glyph)
+  return index < 0 ? 0.5 : index / (FOREST_SOURCE_RAMP.length - 1)
+}
+
+function createForestCells(width: number, height: number) {
+  const lineHeight = Math.max(
+    height / FOREST_ASCII_HEIGHT,
+    width / (FOREST_ASCII_WIDTH * FOREST_CELL_ASPECT)
+  )
+  const cellWidth = lineHeight * FOREST_CELL_ASPECT
+  const offsetX = (width - cellWidth * FOREST_ASCII_WIDTH) / 2
+  const offsetY = (height - lineHeight * FOREST_ASCII_HEIGHT) / 2
+  const densities = new Float32Array(
+    FOREST_ASCII_WIDTH * FOREST_ASCII_HEIGHT
+  )
+
+  for (let row = 0; row < FOREST_ASCII_HEIGHT; row += 1) {
+    const sourceRow = Array.from(FOREST_ASCII_LINES[row] ?? '')
+
+    for (let column = 0; column < FOREST_ASCII_WIDTH; column += 1) {
+      const sourceLuminance = forestSourceLuminance(
+        sourceRow[column] ?? ' '
+      )
+      densities[row * FOREST_ASCII_WIDTH + column] = smoothstep(
+        clamp(sourceLuminance, 0, 1)
+      )
+    }
+  }
+
+  const firstColumn = clamp(
+    Math.floor(-offsetX / cellWidth) - 1,
+    0,
+    FOREST_ASCII_WIDTH - 1
+  )
+  const lastColumn = clamp(
+    Math.ceil((width - offsetX) / cellWidth) + 1,
+    0,
+    FOREST_ASCII_WIDTH - 1
+  )
+  const cells: ForestCell[] = []
+
+  for (let row = 0; row < FOREST_ASCII_HEIGHT; row += 1) {
+    const verticalPosition = row / Math.max(FOREST_ASCII_HEIGHT - 1, 1)
+
+    for (let column = firstColumn; column <= lastColumn; column += 1) {
+      const index = row * FOREST_ASCII_WIDTH + column
+      const density = densities[index]
+      const left = column > 0 ? densities[index - 1] : density
+      const right =
+        column < FOREST_ASCII_WIDTH - 1
+          ? densities[index + 1]
+          : density
+      const above =
+        row > 0 ? densities[index - FOREST_ASCII_WIDTH] : density
+      const below =
+        row < FOREST_ASCII_HEIGHT - 1
+          ? densities[index + FOREST_ASCII_WIDTH]
+          : density
+      const edge = clamp(
+        Math.max(
+          Math.abs(right - left),
+          Math.abs(below - above)
+        ),
+        0,
+        1
+      )
+      const foreground = 0.58 + verticalPosition * 0.42
+      const darkness = 1 - density
+      const interiorTexture =
+        0.035 +
+        (Math.sin(column * 1.73 + row * 2.41) > 0.42 ? 0.065 : 0)
+      const detail =
+        darkness *
+        foreground *
+        (edge * 0.82 + interiorTexture)
+      const wind =
+        Math.pow(darkness, 1.2) *
+        foreground *
+        (0.14 + edge * 1.65)
+
+      cells.push({
+        density,
+        detail,
+        edge,
+        index,
+        phase: column * 0.37 + row * 0.23,
+        wind,
+        x: offsetX + (column + 0.5) * cellWidth,
+        y: offsetY + (row + 0.5) * lineHeight,
+      })
+    }
+  }
+
+  return { cellWidth, cells, lineHeight, offsetX, offsetY }
+}
+
 function glyphSizeFor(
   wave: number,
   slope: number,
@@ -803,6 +957,9 @@ export function AsciiRippleField({
     let lineHeight = 15
     let baseField = new Float32Array()
     let topographyCells: TopographyCell[] = []
+    let forestCells: ForestCell[] = []
+    let forestOffsetX = 0
+    let forestOffsetY = 0
     let currentField = new Float32Array()
     let previousField = new Float32Array()
     let fontFamily = getComputedStyle(canvas).fontFamily
@@ -810,6 +967,7 @@ export function AsciiRippleField({
     let lastFrameTime = 0
     let lastAmbientFrameTime = 0
     let ambientPhase = 0
+    let forestPhase = 0
     let latestEnergy = 0
     let isIntersecting = true
     let disposed = false
@@ -824,9 +982,111 @@ export function AsciiRippleField({
       isIntersecting &&
       !document.hidden
 
+    const drawForest = () => {
+      context.fillStyle = FOREST_INK
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.font = `500 ${Math.max(8, lineHeight * 0.94)}px ${fontFamily}`
+
+      const motionFor = (cell: ForestCell) => {
+        const gustFront = Math.max(
+          0,
+          Math.sin(cell.x * 0.014 - forestPhase * 1.45 - cell.y * 0.009)
+        )
+        const travelingWave = Math.sin(
+          cell.x * 0.032 - forestPhase * 2.8 + cell.y * 0.006
+        )
+        const branchFlutter = Math.sin(cell.phase + forestPhase * 4.1)
+        const gust =
+          gustFront * (travelingWave * 0.72 + branchFlutter * 0.28)
+        const branchResponse = clamp(
+          cell.wind * 0.72 + cell.detail * 0.48,
+          0,
+          1
+        )
+        const ripple =
+          clamp(currentField[cell.index] ?? 0, -1.35, 1.35) *
+          branchResponse
+
+        return { branchFlutter, gust, ripple }
+      }
+
+      for (const cell of forestCells) {
+        const { branchFlutter, gust, ripple } = motionFor(cell)
+        const animatedDensity = clamp(
+          0.025 +
+            cell.density * 0.84 +
+            gust * cell.edge * 0.055 +
+            ripple * cell.edge * 0.035,
+          0,
+          0.87
+        )
+        const glyph = forestGlyphFor(animatedDensity)
+        if (glyph === ' ') continue
+
+        const displacement =
+          gust * cell.wind * cellWidth * 1.35 +
+          ripple * cellWidth * 0.55
+        context.globalAlpha = clamp(
+          0.1 +
+            cell.density * 0.62 +
+            cell.edge * 0.08 +
+            Math.abs(gust) * cell.edge * 0.06 +
+            Math.abs(ripple) * cell.edge * 0.08,
+          0.1,
+          0.8
+        )
+        context.fillText(
+          glyph,
+          cell.x + displacement,
+          cell.y + branchFlutter * cell.wind * lineHeight * 0.035
+        )
+      }
+
+      context.fillStyle = FOREST_DETAIL_INK
+      for (const cell of forestCells) {
+        if (cell.detail < 0.045) continue
+
+        const { branchFlutter, gust, ripple } = motionFor(cell)
+        const animatedDetail = clamp(
+          cell.detail +
+            Math.abs(gust) * cell.edge * 0.06 +
+            ripple * 0.055,
+          0,
+          0.7
+        )
+        const glyph = forestDetailGlyphFor(animatedDetail)
+        if (!glyph) continue
+
+        const displacement =
+          gust * cell.wind * cellWidth * 1.35 +
+          ripple * cellWidth * 0.55
+        context.globalAlpha = clamp(
+          0.16 +
+            cell.detail * 0.7 +
+            Math.abs(gust) * cell.edge * 0.06 +
+            Math.abs(ripple) * 0.1,
+          0.16,
+          0.72
+        )
+        context.fillText(
+          glyph,
+          cell.x + displacement,
+          cell.y + branchFlutter * cell.wind * lineHeight * 0.035
+        )
+      }
+
+      context.globalAlpha = 1
+    }
+
     const draw = () => {
       const bounds = canvas.getBoundingClientRect()
       context.clearRect(0, 0, bounds.width, bounds.height)
+      if (background === 'forest') {
+        drawForest()
+        return
+      }
+
       context.fillStyle =
         background === 'topography' ? TOPOGRAPHY_INK : ASCII_INK
       context.globalAlpha = 1
@@ -1011,14 +1271,24 @@ export function AsciiRippleField({
       const rippleActive = latestEnergy > SETTLED_ENERGY
       const frameInterval = rippleActive
         ? RIPPLE_FRAME_INTERVAL
-        : AMBIENT_FRAME_INTERVAL
+        : background === 'forest'
+          ? FOREST_FRAME_INTERVAL
+          : AMBIENT_FRAME_INTERVAL
 
       if (time - lastFrameTime < frameInterval) {
         scheduleFrame()
         return
       }
 
+      const elapsed =
+        lastFrameTime === 0 ? frameInterval : time - lastFrameTime
       lastFrameTime = time
+      if (background === 'forest') {
+        forestPhase += Math.min(
+          elapsed / 1000,
+          FOREST_FRAME_INTERVAL / 1000
+        )
+      }
 
       if (
         background === 'terrain' &&
@@ -1047,7 +1317,11 @@ export function AsciiRippleField({
       }
 
       draw()
-      if (background === 'terrain' || latestEnergy > SETTLED_ENERGY) {
+      if (
+        background === 'forest' ||
+        background === 'terrain' ||
+        latestEnergy > SETTLED_ENERGY
+      ) {
         scheduleFrame()
       }
     }
@@ -1055,22 +1329,38 @@ export function AsciiRippleField({
     const resize = () => {
       const bounds = canvas.getBoundingClientRect()
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75)
-      if (background === 'topography') {
+      if (background === 'forest') {
+        const forest = createForestCells(bounds.width, bounds.height)
+        cellWidth = forest.cellWidth
+        lineHeight = forest.lineHeight
+        forestCells = forest.cells
+        forestOffsetX = forest.offsetX
+        forestOffsetY = forest.offsetY
+      } else if (background === 'topography') {
         cellWidth = bounds.width < 520 ? 6 : 7
         lineHeight = bounds.width < 520 ? 9 : 10
       } else {
         cellWidth = bounds.width < 520 ? 9 : 11
         lineHeight = bounds.width < 520 ? 13 : 15
       }
-      columns = Math.max(1, Math.floor(bounds.width / cellWidth))
-      rows = Math.max(1, Math.floor(bounds.height / lineHeight))
+      columns =
+        background === 'forest'
+          ? FOREST_ASCII_WIDTH
+          : Math.max(1, Math.floor(bounds.width / cellWidth))
+      rows =
+        background === 'forest'
+          ? FOREST_ASCII_HEIGHT
+          : Math.max(1, Math.floor(bounds.height / lineHeight))
 
       canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio))
       canvas.height = Math.max(1, Math.round(bounds.height * pixelRatio))
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       fontFamily = getComputedStyle(canvas).fontFamily
 
-      if (background === 'topography') {
+      if (background === 'forest') {
+        baseField = new Float32Array()
+        topographyCells = []
+      } else if (background === 'topography') {
         const topography = createTopography(
           columns,
           rows,
@@ -1089,7 +1379,7 @@ export function AsciiRippleField({
       previousField = new Float32Array(columns * rows)
       latestEnergy = 0
 
-      if (variant === 'workflow-route') {
+      if (variant === 'workflow-route' && background !== 'forest') {
         const compact = bounds.width < 640
         const templates = compact
           ? MOBILE_ROUTE_NODES
@@ -1187,12 +1477,22 @@ export function AsciiRippleField({
 
     const disturbAtPointer = (event: PointerEvent) => {
       const bounds = canvas.getBoundingClientRect()
-      const column = Math.floor(
-        ((event.clientX - bounds.left) / bounds.width) * columns
-      )
-      const row = Math.floor(
-        ((event.clientY - bounds.top) / bounds.height) * rows
-      )
+      const column =
+        background === 'forest'
+          ? Math.floor(
+              (event.clientX - bounds.left - forestOffsetX) / cellWidth
+            )
+          : Math.floor(
+              ((event.clientX - bounds.left) / bounds.width) * columns
+            )
+      const row =
+        background === 'forest'
+          ? Math.floor(
+              (event.clientY - bounds.top - forestOffsetY) / lineHeight
+            )
+          : Math.floor(
+              ((event.clientY - bounds.top) / bounds.height) * rows
+            )
 
       disturb(
         clamp(column, 1, Math.max(1, columns - 2)),
@@ -1226,7 +1526,13 @@ export function AsciiRippleField({
     }
 
     const addAutonomousDisturbance = () => {
-      if (!coarsePointer.matches || !canAnimate() || columns < 3 || rows < 3) {
+      if (
+        background === 'forest' ||
+        !coarsePointer.matches ||
+        !canAnimate() ||
+        columns < 3 ||
+        rows < 3
+      ) {
         return
       }
 
