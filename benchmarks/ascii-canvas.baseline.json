@@ -1,0 +1,219 @@
+{
+  "agentBrowserVersion": "agent-browser 0.33.1",
+  "createdAt": "2026-07-28T18:09:46.544Z",
+  "portlessVersion": "0.15.4",
+  "provenance": {
+    "harness": {
+      "files": [
+        "scripts/benchmark-ascii-canvas.mjs",
+        "scripts/benchmark-ascii-canvas-init.js"
+      ],
+      "fingerprint": "0a2206fbb743ba21cb752da6b6134732256cd56c97cc40ef0a1640e3320da4a1"
+    },
+    "source": {
+      "dirtyFiles": [],
+      "fingerprint": "5427d045833752da6753cbf081c1002f1e9987abecb58e1a18c16efbed8de9a8",
+      "revision": "3bb2edfbc4a0a1a6975a53f696603c65e0969f5d",
+      "state": "clean",
+      "files": [
+        "app/components/ascii-ripple-field.tsx",
+        "app/components/ascii-forest-data.ts",
+        "app/components/article-route-hero.tsx",
+        "app/components/nav.tsx",
+        "app/blog/[slug]/page.tsx",
+        "app/blog/utils.ts",
+        "app/global.css",
+        "app/layout.tsx",
+        "app/page.tsx",
+        "articles/Reliable Agent Workflows Need State Machines/article-v2.md",
+        "package.json",
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "sampleCount": 5,
+  "scenarios": {
+    "Galaxy S25|/": {
+      "idle": {
+        "canvasCpuPercent": 1.975,
+        "drawMaxMs": 2.5,
+        "drawP95Ms": 2.2,
+        "draws": 19,
+        "drawsPerSecond": 9.5,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [],
+        "tbtMs": 0
+      },
+      "profile": "Galaxy S25",
+      "route": "/",
+      "touch": {
+        "canvasCpuPercent": 3.79,
+        "drawMaxMs": 3.5,
+        "drawP95Ms": 2.2,
+        "draws": 36,
+        "drawsPerSecond": 18,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "verticalPan": {
+        "canvasCpuPercent": 2,
+        "drawMaxMs": 2.4,
+        "drawP95Ms": 2.4,
+        "draws": 19,
+        "drawsPerSecond": 9.5,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "variant": "forest"
+    },
+    "Galaxy S25|/blog/reliable-agent-workflows-need-state-machines": {
+      "idle": {
+        "canvasCpuPercent": 0,
+        "drawMaxMs": 1.4,
+        "drawP95Ms": 1.2,
+        "draws": 0,
+        "drawsPerSecond": 0,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [],
+        "tbtMs": 0
+      },
+      "profile": "Galaxy S25",
+      "route": "/blog/reliable-agent-workflows-need-state-machines",
+      "touch": {
+        "canvasCpuPercent": 4.355,
+        "drawMaxMs": 4.5,
+        "drawP95Ms": 2.8,
+        "draws": 36,
+        "drawsPerSecond": 18,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "verticalPan": {
+        "canvasCpuPercent": 0,
+        "drawMaxMs": 0,
+        "drawP95Ms": 0,
+        "draws": 0,
+        "drawsPerSecond": 0,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "variant": "topography"
+    },
+    "iPhone 16 Pro|/": {
+      "idle": {
+        "canvasCpuPercent": 2.12,
+        "drawMaxMs": 5.4,
+        "drawP95Ms": 3.1,
+        "draws": 19,
+        "drawsPerSecond": 9.5,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [],
+        "tbtMs": 0
+      },
+      "profile": "iPhone 16 Pro",
+      "route": "/",
+      "touch": {
+        "canvasCpuPercent": 3.795,
+        "drawMaxMs": 2.4,
+        "drawP95Ms": 2.2,
+        "draws": 36,
+        "drawsPerSecond": 18,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "verticalPan": {
+        "canvasCpuPercent": 2.19,
+        "drawMaxMs": 5.3,
+        "drawP95Ms": 5.3,
+        "draws": 19,
+        "drawsPerSecond": 9.5,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "variant": "forest"
+    },
+    "iPhone 16 Pro|/blog/reliable-agent-workflows-need-state-machines": {
+      "idle": {
+        "canvasCpuPercent": 0,
+        "drawMaxMs": 2,
+        "drawP95Ms": 1.2,
+        "draws": 0,
+        "drawsPerSecond": 0,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [],
+        "tbtMs": 0
+      },
+      "profile": "iPhone 16 Pro",
+      "route": "/blog/reliable-agent-workflows-need-state-machines",
+      "touch": {
+        "canvasCpuPercent": 4.035,
+        "drawMaxMs": 4.5,
+        "drawP95Ms": 3,
+        "draws": 35,
+        "drawsPerSecond": 17.5,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "verticalPan": {
+        "canvasCpuPercent": 0,
+        "drawMaxMs": 0,
+        "drawP95Ms": 0,
+        "draws": 0,
+        "drawsPerSecond": 0,
+        "longTasks": 0,
+        "pageLongTasks": 0,
+        "pageTbtMs": 0,
+        "pointerTypes": [
+          "touch"
+        ],
+        "tbtMs": 0
+      },
+      "variant": "topography"
+    }
+  },
+  "version": 4,
+  "windowMs": 2000
+}
