@@ -23,12 +23,12 @@ export function ArticleRouteHero({
 }: ArticleRouteHeroProps) {
   return (
     <header
-      className="relative isolate min-h-[calc(100dvh-72px)] overflow-hidden max-[767px]:min-h-[calc(100dvh-64px)]"
+      className="relative isolate min-h-[calc(100vh-72px)] overflow-hidden max-[767px]:min-h-[calc(100vh-64px)]"
       data-ascii-interaction-surface
     >
       <AsciiRippleField
         background={asciiBackground}
-        className="h-[100dvh]"
+        className="h-[100vh]"
         seed={seed}
         variant="workflow-route"
       />

@@ -9,11 +9,11 @@ export default function Page() {
   return (
     <section className="home-page relative left-1/2 -ml-[50vw] flex w-screen flex-1 flex-col">
       <div
-        className="home-hero relative isolate min-h-[calc(112.5dvh-72px)] max-[767px]:min-h-[calc(112.5dvh-64px)]"
+        className="home-hero relative isolate min-h-[calc(112.5vh-72px)] max-[767px]:min-h-[calc(112.5vh-64px)]"
         data-ascii-interaction-surface
       >
         <AsciiRippleField />
-        <div className="relative z-20 mx-auto flex min-h-[calc(112.5dvh-72px)] w-full max-w-[1560px] items-start px-[clamp(24px,3vw,48px)] pt-[calc(28.125dvh_-_18px)] max-[767px]:min-h-[calc(112.5dvh-64px)] max-[767px]:px-5 max-[767px]:pt-[calc(28.125dvh_-_16px)]">
+        <div className="relative z-20 mx-auto flex min-h-[calc(112.5vh-72px)] w-full max-w-[1560px] items-start px-[clamp(24px,3vw,48px)] pt-[calc(28.125vh_-_18px)] max-[767px]:min-h-[calc(112.5vh-64px)] max-[767px]:px-5 max-[767px]:pt-[calc(28.125vh_-_16px)]">
           <div className="relative isolate w-full max-w-[560px]">
             <ShadowGradient
               className="-inset-y-[72px] -left-12 -right-60 max-[960px]:-right-6 max-[960px]:-left-6 max-[767px]:-inset-y-12 max-[767px]:-right-5 max-[767px]:-left-5"
@@ -48,7 +48,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-      <div className="pointer-events-none relative isolate -mt-40 min-h-[70dvh] w-full pb-24 max-[767px]:-mt-28 max-[767px]:pb-[72px]">
+      <div className="pointer-events-none relative isolate -mt-40 min-h-[70vh] w-full pb-24 max-[767px]:-mt-28 max-[767px]:pb-[72px]">
         <ShadowGradient
           className="inset-x-0 top-0 h-40 max-[767px]:h-28"
           direction="to-top"

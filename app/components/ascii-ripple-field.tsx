@@ -773,7 +773,7 @@ function buildTerrainRoute(
 
 export function AsciiRippleField({
   background = 'terrain',
-  className = 'h-[112.5dvh]',
+  className = 'h-[112.5vh]',
   seed = 'stefan-garofalo',
   variant = 'terrain',
 }: AsciiRippleFieldProps = {}) {
