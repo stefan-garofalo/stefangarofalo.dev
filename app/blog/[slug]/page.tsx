@@ -153,7 +153,7 @@ export default async function Blog({ params }: Props) {
         seed={post.slug}
         title={post.metadata.title}
       />
-      <article className="prose relative z-20 mx-auto mt-16 w-full max-w-[800px] px-6 pb-[10lvh] max-[767px]:mt-12 max-[767px]:px-5">
+      <article className="prose relative z-20 mx-auto mt-16 w-full max-w-[740px] px-6 pb-[10lvh] text-[17px] leading-[1.75] max-[767px]:mt-12 max-[767px]:px-5 max-[767px]:text-[16px] max-[767px]:leading-[1.72]">
         <CustomMDX source={post.content} />
       </article>
     </section>
