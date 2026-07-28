@@ -8,6 +8,23 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import Footer from './components/footer'
 import { baseUrl } from './sitemap'
 
+const themeInitScript = `
+  (() => {
+    let theme
+    try {
+      const stored = localStorage.getItem('theme')
+      if (stored === 'dark' || stored === 'light') theme = stored
+    } catch {}
+    if (!theme) {
+      theme = matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+    }
+    document.documentElement.dataset.theme = theme
+    document.documentElement.style.colorScheme = theme
+  })()
+`
+
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
@@ -73,8 +90,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${GeistSans.variable} ${jetBrainsMono.variable}`}
+      className={`${GeistSans.variable} ${jetBrainsMono.variable}`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+          id="theme-init"
+        />
+      </head>
       <body>
         <main className="mx-auto flex min-h-lvh w-full max-w-[1560px] flex-col px-[clamp(24px,3vw,48px)] max-[767px]:px-5">
           <Navbar />

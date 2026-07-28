@@ -22,6 +22,7 @@ const FOREST_GLYPHS = [
 ] as const
 const FOREST_DETAIL_GLYPHS = ['.', ':', '/', '+', '*', '#'] as const
 const FOREST_SOURCE_RAMP = ' .,:;i1tIl|!+~=<>*#MW&%@$█▓▒░☺☻♥♦♣♠'
+const TOP_FILLER_ROWS = 10
 const RIPPLE_FRAME_INTERVAL = 1000 / 30
 const AMBIENT_FRAME_INTERVAL = 1000 / 9
 const AMBIENT_PHASE_SPEED = 2.5
@@ -42,6 +43,8 @@ const MOBILE_AUTONOMOUS_STRENGTH = 0.72
 const MOBILE_AUTONOMOUS_MAX_DISTURBANCE = 1.6
 const MOBILE_TOUCH_FRAME_INTERVAL = 1000 / 20
 const ROUTE_INK = '#b8a0d9'
+const ROUTE_LABEL_INK = '#d2d0c9'
+const CANVAS_BACKDROP = '#11120f'
 const TOPOGRAPHY_INK = '#70726b'
 
 export type AsciiBackground = 'forest' | 'terrain' | 'topography'
@@ -64,8 +67,11 @@ type ForestCell = {
   density: number
   detail: number
   edge: number
+  filler: boolean
   index: number
   phase: number
+  sky: number
+  skyTexture: number
   wind: number
   x: number
   y: number
@@ -392,7 +398,8 @@ function createTopography(
   cellWidth: number,
   lineHeight: number,
   seed: string,
-  bandCount: number
+  bandCount: number,
+  topFillerRows = 0
 ) {
   const length = columns * rows
   const heights = new Float32Array(length)
@@ -401,14 +408,15 @@ function createTopography(
   const peaks = createTopographyPeaks(seed)
   const seedOffset = hashString(seed)
   const width = columns * cellWidth
-  const height = rows * lineHeight
+  const contentRows = Math.max(1, rows - topFillerRows)
+  const height = contentRows * lineHeight
 
   for (let row = 0; row < rows; row += 1) {
     for (let column = 0; column < columns; column += 1) {
       const index = row * columns + column
       heights[index] = topographyHeight(
         column * cellWidth + cellWidth / 2,
-        row * lineHeight + lineHeight / 2,
+        (row - topFillerRows) * lineHeight + lineHeight / 2,
         width,
         height,
         peaks,
@@ -470,7 +478,22 @@ function createTopography(
         heights[index] >= heights[top] &&
         heights[index] >= heights[bottom]
 
-      if (isSummit) {
+      if (row < topFillerRows) {
+        const fillerTexture = hashGrid(
+          column + seedOffset * 2,
+          row - seedOffset * 3
+        )
+        cells[index] = {
+          alpha: 0.28 + ((fillerTexture + 1) / 2) * 0.12,
+          glyph:
+            fillerTexture > 0.42
+              ? '-'
+              : fillerTexture > -0.18
+                ? '·'
+                : '.',
+          size: 6,
+        }
+      } else if (isSummit) {
         cells[index] = {
           alpha: 0.96,
           glyph: contourLevel % 3 === 0 ? '○' : '◦',
@@ -632,17 +655,28 @@ function createForestCells(width: number, height: number) {
   const cellWidth = lineHeight * FOREST_CELL_ASPECT
   const offsetX = (width - cellWidth * FOREST_ASCII_WIDTH) / 2
   const offsetY = (height - lineHeight * FOREST_ASCII_HEIGHT) / 2
-  const densities = new Float32Array(
-    FOREST_ASCII_WIDTH * FOREST_ASCII_HEIGHT
-  )
+  const totalRows = FOREST_ASCII_HEIGHT + TOP_FILLER_ROWS
+  const densities = new Float32Array(FOREST_ASCII_WIDTH * totalRows)
 
-  for (let row = 0; row < FOREST_ASCII_HEIGHT; row += 1) {
-    const sourceRow = Array.from(FOREST_ASCII_LINES[row] ?? '')
+  for (let row = 0; row < totalRows; row += 1) {
+    const sourceRow =
+      row < TOP_FILLER_ROWS
+        ? []
+        : Array.from(FOREST_ASCII_LINES[row - TOP_FILLER_ROWS] ?? '')
 
     for (let column = 0; column < FOREST_ASCII_WIDTH; column += 1) {
-      const sourceLuminance = forestSourceLuminance(
-        sourceRow[column] ?? ' '
-      )
+      const cloud =
+        Math.sin(column * 0.083 + row * 0.71) +
+        Math.sin(column * 0.031 - row * 1.17) +
+        hashGrid(column * 2 + row, row * 3 - column) * 0.35
+      const cloudLuminance =
+        cloud > -0.25
+          ? clamp(0.16 + (cloud + 0.25) * 0.055, 0.16, 0.27)
+          : 0.04
+      const sourceLuminance =
+        row < TOP_FILLER_ROWS
+          ? cloudLuminance
+          : forestSourceLuminance(sourceRow[column] ?? ' ')
       densities[row * FOREST_ASCII_WIDTH + column] = smoothstep(
         clamp(sourceLuminance, 0, 1)
       )
@@ -661,8 +695,13 @@ function createForestCells(width: number, height: number) {
   )
   const cells: ForestCell[] = []
 
-  for (let row = 0; row < FOREST_ASCII_HEIGHT; row += 1) {
-    const verticalPosition = row / Math.max(FOREST_ASCII_HEIGHT - 1, 1)
+  for (let row = 0; row < totalRows; row += 1) {
+    const isFiller = row < TOP_FILLER_ROWS
+    const verticalPosition = clamp(
+      (row - TOP_FILLER_ROWS) / Math.max(FOREST_ASCII_HEIGHT - 1, 1),
+      0,
+      1
+    )
 
     for (let column = firstColumn; column <= lastColumn; column += 1) {
       const index = row * FOREST_ASCII_WIDTH + column
@@ -673,9 +712,15 @@ function createForestCells(width: number, height: number) {
           ? densities[index + 1]
           : density
       const above =
-        row > 0 ? densities[index - FOREST_ASCII_WIDTH] : density
+        row === TOP_FILLER_ROWS
+          ? density
+          : row > 0
+            ? densities[index - FOREST_ASCII_WIDTH]
+            : density
       const below =
-        row < FOREST_ASCII_HEIGHT - 1
+        row === TOP_FILLER_ROWS - 1
+          ? density
+          : row < totalRows - 1
           ? densities[index + FOREST_ASCII_WIDTH]
           : density
       const edge = clamp(
@@ -691,21 +736,27 @@ function createForestCells(width: number, height: number) {
       const interiorTexture =
         0.035 +
         (Math.sin(column * 1.73 + row * 2.41) > 0.42 ? 0.065 : 0)
-      const detail =
-        darkness *
-        foreground *
-        (edge * 0.82 + interiorTexture)
+      const detail = isFiller
+        ? edge * 0.12
+        : darkness *
+          foreground *
+          (edge * 0.82 + interiorTexture)
       const wind =
-        Math.pow(darkness, 1.2) *
-        foreground *
+        (isFiller ? 0.08 : Math.pow(darkness, 1.2) * foreground) *
         (0.14 + edge * 1.65)
 
       cells.push({
         density,
         detail,
         edge,
+        filler: isFiller,
         index,
         phase: column * 0.37 + row * 0.23,
+        sky: isFiller
+          ? 1
+          : smoothstep(clamp((density - 0.32) / 0.55, 0, 1)),
+        skyTexture:
+          (hashGrid(column * 2 + row, row * 3 - column) + 1) / 2,
         wind,
         x: offsetX + (column + 0.5) * cellWidth,
         y: offsetY + (row + 0.5) * lineHeight,
@@ -751,6 +802,34 @@ function pointOnCubic(segment: CubicRouteSegment, progress: number) {
       y1 * controlOneWeight +
       y2 * controlTwoWeight +
       y3 * endWeight,
+  }
+}
+
+function insetRouteGeometry(
+  nodes: RouteNode[],
+  segments: CubicRouteSegment[],
+  contentRows: number,
+  totalRows: number
+) {
+  const insetY = (value: number) =>
+    (TOP_FILLER_ROWS + value * Math.max(contentRows - 1, 1)) /
+    Math.max(totalRows - 1, 1)
+
+  return {
+    nodes: nodes.map((node) => ({ ...node, y: insetY(node.y) })),
+    segments: segments.map(
+      ([x0, y0, x1, y1, x2, y2, x3, y3]) =>
+        [
+          x0,
+          insetY(y0),
+          x1,
+          insetY(y1),
+          x2,
+          insetY(y2),
+          x3,
+          insetY(y3),
+        ] as CubicRouteSegment
+    ),
   }
 }
 
@@ -953,6 +1032,7 @@ export function AsciiRippleField({
 
     let columns = 0
     let rows = 0
+    let visibleRows = 0
     let cellWidth = 11
     let lineHeight = 15
     let baseField = new Float32Array()
@@ -977,13 +1057,49 @@ export function AsciiRippleField({
     let routeIndices: number[] = []
     let routeIndexSet = new Set<number>()
     let routeNodes: RouteNode[] = []
+    let asciiInk = ASCII_INK
+    let forestInk = FOREST_INK
+    let forestDetailInk = FOREST_DETAIL_INK
+    let forestDetailStrength = 1
+    let forestLightPolarity = 0
+    let forestSkyStrength = 1
+    let topographyInk = TOPOGRAPHY_INK
+    let routeInk = ROUTE_INK
+    let routeLabelInk = ROUTE_LABEL_INK
+    let canvasBackdrop = CANVAS_BACKDROP
     const canAnimate = () =>
       !reducedMotion.matches &&
       isIntersecting &&
       !document.hidden
 
+    const readCanvasPalette = () => {
+      const styles = getComputedStyle(canvas)
+      const color = (property: string, fallback: string) =>
+        styles.getPropertyValue(property).trim() || fallback
+
+      asciiInk = color('--ascii-ink', ASCII_INK)
+      forestInk = color('--forest-ink', FOREST_INK)
+      forestDetailInk = color('--forest-detail-ink', FOREST_DETAIL_INK)
+      forestDetailStrength =
+        Number.parseFloat(
+          styles.getPropertyValue('--forest-detail-strength')
+        ) || 1
+      forestLightPolarity =
+        Number.parseFloat(
+          styles.getPropertyValue('--forest-light-polarity')
+        ) || 0
+      forestSkyStrength =
+        Number.parseFloat(
+          styles.getPropertyValue('--forest-sky-strength')
+        ) || 1
+      topographyInk = color('--topography-ink', TOPOGRAPHY_INK)
+      routeInk = color('--route-ink', ROUTE_INK)
+      routeLabelInk = color('--route-label-ink', ROUTE_LABEL_INK)
+      canvasBackdrop = color('--canvas-backdrop', CANVAS_BACKDROP)
+    }
+
     const drawForest = () => {
-      context.fillStyle = FOREST_INK
+      context.fillStyle = forestInk
       context.textAlign = 'center'
       context.textBaseline = 'middle'
       context.font = `500 ${Math.max(8, lineHeight * 0.94)}px ${fontFamily}`
@@ -1013,29 +1129,96 @@ export function AsciiRippleField({
 
       for (const cell of forestCells) {
         const { branchFlutter, gust, ripple } = motionFor(cell)
-        const animatedDensity = clamp(
+        const darkSourceDensity = cell.filler
+          ? 1 - cell.density
+          : cell.density
+        const darkDensity = clamp(
           0.025 +
-            cell.density * 0.84 +
+            darkSourceDensity * 0.84 +
             gust * cell.edge * 0.055 +
             ripple * cell.edge * 0.035,
           0,
           0.87
         )
+        const fillerCloud = clamp(cell.density / 0.18, 0, 1)
+        const fillerHashThreshold = 0.52 - fillerCloud * 0.18
+        const fillerTexture = smoothstep(
+          clamp(
+            (cell.skyTexture - fillerHashThreshold) /
+              (1 - fillerHashThreshold),
+            0,
+            1
+          )
+        )
+        const fillerActivity = clamp(
+          fillerCloud * fillerTexture,
+          0,
+          1
+        )
+        const sparseFillerDensity =
+          fillerActivity > 0.04
+            ? 0.12 +
+              smoothstep(fillerActivity) * 0.26
+            : 0.03
+        const canonicalLightDensity = clamp(
+          0.04 +
+            (1 - cell.density) * 0.94 +
+            gust * cell.edge * 0.055 +
+            ripple * cell.edge * 0.035,
+          0,
+          0.97
+        )
+        const canonicalSkyCluster = clamp(
+          (1 - cell.density) * 1.2 + cell.skyTexture * 0.55,
+          0,
+          1
+        )
+        const sparseCanonicalSkyDensity =
+          canonicalSkyCluster > 0.5
+            ? 0.12 +
+              smoothstep((canonicalSkyCluster - 0.5) / 0.5) * 0.26
+            : 0.03
+        const canonicalSkyMix = smoothstep(
+          clamp((cell.sky - 0.55) / 0.45, 0, 1)
+        )
+        const lightDensity = cell.filler
+          ? clamp(
+              sparseFillerDensity +
+                gust * cell.edge * 0.025 +
+                ripple * cell.edge * 0.02,
+              0,
+              0.39
+            )
+          : canonicalLightDensity +
+            (sparseCanonicalSkyDensity - canonicalLightDensity) *
+              canonicalSkyMix
+        const animatedDensity =
+          forestLightPolarity === 0
+            ? darkDensity
+            : darkDensity +
+              (lightDensity - darkDensity) * forestLightPolarity
         const glyph = forestGlyphFor(animatedDensity)
         if (glyph === ' ') continue
 
         const displacement =
           gust * cell.wind * cellWidth * 1.35 +
           ripple * cellWidth * 0.55
-        context.globalAlpha = clamp(
+        const alphaDensity =
+          forestLightPolarity === 0
+            ? darkSourceDensity
+            : cell.density +
+              (animatedDensity - cell.density) * forestLightPolarity
+        const baseAlpha = clamp(
           0.1 +
-            cell.density * 0.62 +
+            alphaDensity * 0.62 +
             cell.edge * 0.08 +
             Math.abs(gust) * cell.edge * 0.06 +
             Math.abs(ripple) * cell.edge * 0.08,
           0.1,
           0.8
         )
+        context.globalAlpha =
+          baseAlpha * (1 + cell.sky * (forestSkyStrength - 1))
         context.fillText(
           glyph,
           cell.x + displacement,
@@ -1043,7 +1226,7 @@ export function AsciiRippleField({
         )
       }
 
-      context.fillStyle = FOREST_DETAIL_INK
+      context.fillStyle = forestDetailInk
       for (const cell of forestCells) {
         if (cell.detail < 0.045) continue
 
@@ -1061,13 +1244,18 @@ export function AsciiRippleField({
         const displacement =
           gust * cell.wind * cellWidth * 1.35 +
           ripple * cellWidth * 0.55
-        context.globalAlpha = clamp(
+        const detailAlpha = clamp(
           0.16 +
             cell.detail * 0.7 +
             Math.abs(gust) * cell.edge * 0.06 +
             Math.abs(ripple) * 0.1,
           0.16,
           0.72
+        )
+        context.globalAlpha = clamp(
+          detailAlpha * forestDetailStrength,
+          0.16,
+          0.86
         )
         context.fillText(
           glyph,
@@ -1088,7 +1276,7 @@ export function AsciiRippleField({
       }
 
       context.fillStyle =
-        background === 'topography' ? TOPOGRAPHY_INK : ASCII_INK
+        background === 'topography' ? topographyInk : asciiInk
       context.globalAlpha = 1
       context.textAlign = 'center'
       context.textBaseline = 'middle'
@@ -1169,7 +1357,7 @@ export function AsciiRippleField({
       }
 
       if (variant === 'workflow-route') {
-        context.fillStyle = ROUTE_INK
+        context.fillStyle = routeInk
         context.globalAlpha = 0.92
         context.font = `600 ${BASE_GLYPH_SIZE}px ${fontFamily}`
 
@@ -1186,8 +1374,8 @@ export function AsciiRippleField({
         const bounds = canvas.getBoundingClientRect()
         context.globalAlpha = 1
         context.lineWidth = 2
-        context.strokeStyle = ROUTE_INK
-        context.fillStyle = '#d2d0c9'
+        context.strokeStyle = routeInk
+        context.fillStyle = routeLabelInk
         context.lineJoin = 'round'
         context.textAlign = 'left'
         context.textBaseline = 'middle'
@@ -1195,36 +1383,45 @@ export function AsciiRippleField({
 
         for (const node of routeNodes) {
           const x = node.x * bounds.width
-          const y = node.y * bounds.height
+          const y =
+            background === 'topography'
+              ? node.y * Math.max(rows - 1, 1) * lineHeight +
+                lineHeight / 2
+              : node.y * bounds.height
           const labelX = x + node.labelX * bounds.width
           const labelY = y + node.labelY * bounds.height
 
           context.lineWidth = 2
-          context.strokeStyle = ROUTE_INK
+          context.strokeStyle = routeInk
           context.beginPath()
           context.arc(x, y, bounds.width < 520 ? 5 : 6, 0, Math.PI * 2)
           context.stroke()
 
           context.lineWidth = bounds.width < 520 ? 3 : 4
-          context.strokeStyle = '#11120f'
+          context.strokeStyle = canvasBackdrop
           context.strokeText(node.label, labelX, labelY)
           context.fillText(node.label, labelX, labelY)
         }
 
-        context.fillStyle = ROUTE_INK
+        context.fillStyle = routeInk
         context.font = `600 ${bounds.width < 520 ? 12 : 14}px ${fontFamily}`
         const implementNode = routeNodes[2]
         const reviewNode = routeNodes[3]
         if (implementNode && reviewNode) {
+          const nodeY = (node: RouteNode) =>
+            background === 'topography'
+              ? node.y * Math.max(rows - 1, 1) * lineHeight +
+                lineHeight / 2
+              : node.y * bounds.height
           context.fillText(
             '↑',
             implementNode.x * bounds.width,
-            (implementNode.y + 0.035) * bounds.height
+            nodeY(implementNode) + 0.035 * bounds.height
           )
           context.fillText(
             '←',
             (reviewNode.x - 0.035) * bounds.width,
-            (reviewNode.y + 0.015) * bounds.height
+            nodeY(reviewNode) + 0.015 * bounds.height
           )
         }
       }
@@ -1347,10 +1544,14 @@ export function AsciiRippleField({
         background === 'forest'
           ? FOREST_ASCII_WIDTH
           : Math.max(1, Math.floor(bounds.width / cellWidth))
-      rows =
+      visibleRows =
         background === 'forest'
           ? FOREST_ASCII_HEIGHT
           : Math.max(1, Math.floor(bounds.height / lineHeight))
+      rows =
+        background === 'forest' || background === 'topography'
+          ? visibleRows + TOP_FILLER_ROWS
+          : visibleRows
 
       canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio))
       canvas.height = Math.max(1, Math.round(bounds.height * pixelRatio))
@@ -1367,7 +1568,8 @@ export function AsciiRippleField({
           cellWidth,
           lineHeight,
           seed,
-          bounds.width < 640 ? 6 : 8
+          bounds.width < 640 ? 6 : 8,
+          TOP_FILLER_ROWS
         )
         baseField = topography.heights
         topographyCells = topography.cells
@@ -1381,14 +1583,22 @@ export function AsciiRippleField({
 
       if (variant === 'workflow-route' && background !== 'forest') {
         const compact = bounds.width < 640
-        const templates = compact
+        let templates = compact
           ? MOBILE_ROUTE_NODES
           : DESKTOP_ROUTE_NODES
-        const segments = compact
+        let segments = compact
           ? MOBILE_ROUTE_SEGMENTS
           : DESKTOP_ROUTE_SEGMENTS
 
         if (background === 'topography') {
+          const insetRoute = insetRouteGeometry(
+            templates,
+            segments,
+            visibleRows,
+            rows
+          )
+          templates = insetRoute.nodes
+          segments = insetRoute.segments
           const route = buildTerrainRoute(
             templates,
             segments,
@@ -1490,6 +1700,8 @@ export function AsciiRippleField({
           ? Math.floor(
               (event.clientY - bounds.top - forestOffsetY) / lineHeight
             )
+          : background === 'topography'
+            ? Math.floor((event.clientY - bounds.top) / lineHeight)
           : Math.floor(
               ((event.clientY - bounds.top) / bounds.height) * rows
             )
@@ -1541,7 +1753,8 @@ export function AsciiRippleField({
         (0.5 + Math.sin(autonomousStep * 1.618) * 0.28) * (columns - 1)
       )
       const row = Math.round(
-        (0.5 + Math.sin(autonomousStep * 1.113 + 0.8) * 0.22) * (rows - 1)
+        (0.5 + Math.sin(autonomousStep * 1.113 + 0.8) * 0.22) *
+          (visibleRows - 1)
       )
 
       disturb(
@@ -1583,6 +1796,10 @@ export function AsciiRippleField({
     }
 
     const resizeObserver = new ResizeObserver(resize)
+    const themeObserver = new MutationObserver(() => {
+      readCanvasPalette()
+      draw()
+    })
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       isIntersecting = entry.isIntersecting
 
@@ -1598,6 +1815,10 @@ export function AsciiRippleField({
     })
 
     resizeObserver.observe(canvas)
+    themeObserver.observe(document.documentElement, {
+      attributeFilter: ['data-theme'],
+      attributes: true,
+    })
     intersectionObserver.observe(canvas)
     interactionSurface.addEventListener('pointerdown', handlePointerDown, {
       passive: true,
@@ -1612,6 +1833,7 @@ export function AsciiRippleField({
       addAutonomousDisturbance,
       MOBILE_AUTONOMOUS_INTERVAL
     )
+    readCanvasPalette()
     resize()
     scheduleFrame()
 
@@ -1627,6 +1849,7 @@ export function AsciiRippleField({
       if (animationFrame) cancelAnimationFrame(animationFrame)
       window.clearInterval(autonomousTimer)
       resizeObserver.disconnect()
+      themeObserver.disconnect()
       intersectionObserver.disconnect()
       interactionSurface.removeEventListener('pointerdown', handlePointerDown)
       interactionSurface.removeEventListener('pointermove', handlePointerMove)

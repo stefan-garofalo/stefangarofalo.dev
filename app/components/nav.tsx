@@ -1,10 +1,8 @@
 import Link from 'next/link'
 import { ShadowGradient } from './shadow-gradient'
+import { ThemeToggle } from './theme-toggle'
 
 const navItems = {
-  '/': {
-    name: 'home',
-  },
   '/#articles': {
     name: 'blog',
   },
@@ -13,7 +11,7 @@ const navItems = {
 export function Navbar() {
   return (
     <nav
-      className="relative z-30 isolate flex min-h-[72px] items-center justify-between gap-8 border-b border-[var(--border)] text-[13px] text-[var(--text-secondary)] max-[767px]:min-h-16"
+      className="sticky top-0 z-30 isolate flex min-h-[72px] items-center justify-between gap-8 border-b border-[var(--border)] text-[13px] text-[var(--text-secondary)] max-[767px]:min-h-16"
       id="nav"
       aria-label="Primary navigation"
     >
@@ -37,6 +35,7 @@ export function Navbar() {
             {name}
           </Link>
         ))}
+        <ThemeToggle />
       </div>
     </nav>
   )

@@ -32,7 +32,7 @@ export function ArticleRouteHero({
         seed={seed}
         variant="workflow-route"
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[58%] bg-[linear-gradient(to_top,rgba(17,18,15,0.92)_0%,rgba(17,18,15,0.72)_24%,rgba(17,18,15,0.38)_48%,rgba(17,18,15,0.12)_72%,rgba(17,18,15,0)_100%)]" />
+      <div className="article-hero-bottom-scrim pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[58%]" />
       <div className="absolute inset-x-0 bottom-[clamp(44px,7lvh,84px)] z-20 mx-auto w-full max-w-[1560px] px-[clamp(24px,3vw,48px)] max-[767px]:bottom-10 max-[767px]:px-5">
         <div className="relative isolate max-w-[1040px]">
           <ShadowGradient
