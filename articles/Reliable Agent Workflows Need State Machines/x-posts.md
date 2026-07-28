@@ -2,32 +2,32 @@
 
 Draft only. No publication action has been taken.
 
-## Launch Thesis
+## Why Linear Skill Wrappers Fail
 
-A checklist records a sequence but cannot govern what happens when evidence changes the route. When obligations must survive model invocations, the workflow needs state-machine rules and durable state.
-
-https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
-
-## Agent Graph Engineering
-
-A Durable Workflow Graph separates three responsibilities. Graph topology defines routes, state-machine semantics decide which transition is legal, and an actor-like gate owns work and validation.
+In a multi-step skill, an ordered sequence can call skills without creating a persistent run. When evidence changes the route, the workflow needs explicit states, entry rules, and durable state.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
-## Stable Gate Ownership
+## Durable Workflow Graph for Skills
 
-A gate may invoke narrower skills, but it still accepts their output, validates the result, and returns one outcome. This actor-like boundary keeps ownership stable while internal execution changes.
-
-https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
-
-## Durable Handoffs
-
-At gate exit, the agent validates the outcome, persists a handoff, and returns control to the router. Once accepted, the handoff lets routing resume from recorded state instead of conversation memory.
+In multi-step skill architecture, a Durable Workflow Graph separates three jobs. Topology defines routes, state-machine guards decide which move is legal, and actor-like gates own work and validation.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
-## Terminal Guard
+## Delegating Between Skills
 
-A terminal guard confirms global completion only when every obligation remains satisfied for current dependencies. If no route is eligible and the guard is false, the router reports what is missing.
+In a skill workflow, a gate may invoke narrower skills but must still accept their output, validate it, and return one outcome. Execution can vary while responsibility stays at that actor-like boundary.
+
+https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
+
+## Resuming Across Model Invocations
+
+After a gate validates an outcome and persists its handoff, control returns to the router. Once accepted, the handoff preserves that outcome and evidence for router re-entry across model invocations.
+
+https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
+
+## Completing the Whole Skill Workflow
+
+A multi-step skill completes only when every obligation has fresh evidence for its current dependencies. A terminal guard enforces that condition, so one finished gate cannot close the whole workflow.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines

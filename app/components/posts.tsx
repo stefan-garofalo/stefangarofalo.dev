@@ -26,7 +26,7 @@ export function BlogPosts({ posts }: BlogPostsProps = {}) {
             href={`/blog/${post.slug}`}
           >
             <div className="relative z-20 flex w-full flex-col space-x-0 md:flex-row md:space-x-2">
-              <p className="w-auto whitespace-nowrap tabular-nums text-[var(--text-secondary)] transition-colors group-hover:text-[var(--text-primary)] group-focus-visible:text-[var(--text-primary)] motion-reduce:transition-none md:w-[100px] md:shrink-0">
+              <p className="w-auto whitespace-nowrap tabular-nums text-[var(--text-secondary)] transition-colors group-hover:text-[var(--text-primary)] group-focus-visible:text-[var(--text-primary)] motion-reduce:transition-none md:w-[18ch] md:shrink-0">
                 {formatDate(post.metadata.publishedAt, false)}
               </p>
               <p className="tracking-tight text-[var(--text-primary)]">
