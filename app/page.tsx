@@ -22,10 +22,19 @@ export default function Page() {
             <h1 className="relative z-20 m-0 whitespace-nowrap text-[clamp(30px,2.3vw,40px)] leading-[0.98] font-semibold tracking-[-0.065em] max-[767px]:whitespace-normal max-[767px]:text-[clamp(28px,8vw,36px)]">
               Stefan Garofalo
             </h1>
-            <p className="relative z-20 mt-6 mb-0 max-w-[46ch] text-[clamp(13px,1vw,15px)] leading-[1.7] text-[var(--text-secondary)] max-[767px]:max-w-[38ch] max-[767px]:text-[13px]">
-              I write practical technical articles about software engineering
-              and AI-assisted development.
-            </p>
+            <div className="relative z-20 mt-6 max-w-[46ch] space-y-3 text-[clamp(13px,1vw,15px)] leading-[1.7] text-[var(--text-secondary)] max-[767px]:max-w-[38ch] max-[767px]:text-[13px]">
+              <p>
+                I&apos;m a full-stack developer at Devpunks. I&apos;ve spent
+                four years working across the full stack, and these days
+                I&apos;m focused on AI-driven development and agent engineering
+                for real software teams.
+              </p>
+              <p>
+                I write about what I learn along the way, from TypeScript and
+                Effect to agentic coding. I&apos;m passionate about programming
+                and science. Huge Effect fan. Football fan too.
+              </p>
+            </div>
             <span
               className="relative z-20 mt-7 block h-[3px] w-16 bg-[var(--accent)] max-[767px]:mt-6 max-[767px]:w-[52px]"
               aria-hidden="true"

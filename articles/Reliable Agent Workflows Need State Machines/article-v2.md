@@ -5,7 +5,7 @@ publishedAt: 2026-07-27
 summary: A Durable Workflow Graph combines state-machine transitions with actor-style gates so long-running skill workflows can resume from durable evidence and account for every required step.
 author: Stefan Garofalo
 asciiBackground: topography
-image: /images/reliable-agent-workflows-need-state-machines/header-ascii-dithered.png
+image: /images/reliable-agent-workflows-need-state-machines/article-hero-og.png
 ---
 
 Consider a coding workflow that plans a change, implements it, and reviews the resulting diff. An ordered Markdown sequence can call those skills in the right order, but order alone does not create a persistent workflow run. After implementation produces code and passing tests, its local contract is satisfied, so it may report `complete`; if the surrounding sequence has neither a stored obligation saying that review is pending nor a terminal guard that checks it, the model can accept local success as the end of the whole request. When execution resumes, someone must reconstruct the intended route from the original instructions, diff, and remaining logs.

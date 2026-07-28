@@ -16,6 +16,20 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: baseUrl,
+    types: {
+      'application/rss+xml': `${baseUrl}/rss`,
+    },
+  },
+  authors: [
+    {
+      name: 'Stefan Garofalo',
+      url: baseUrl,
+    },
+  ],
+  creator: 'Stefan Garofalo',
+  publisher: 'Stefan Garofalo',
   title: {
     default: 'Stefan Garofalo',
     template: '%s | Stefan Garofalo',
@@ -30,6 +44,13 @@ export const metadata: Metadata = {
     siteName: 'Stefan Garofalo',
     locale: 'en_US',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Stefan Garofalo',
+    description:
+      'Practical technical articles about software engineering and AI-assisted development.',
+    creator: '@stefangarofalo',
   },
   robots: {
     index: true,

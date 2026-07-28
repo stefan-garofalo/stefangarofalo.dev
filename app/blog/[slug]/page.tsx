@@ -3,9 +3,17 @@ import { CustomMDX } from 'app/components/mdx'
 import { ArticleRouteHero } from 'app/components/article-route-hero'
 import { formatDate, getBlogPosts } from 'app/blog/utils'
 import { baseUrl } from 'app/sitemap'
+import type { Metadata } from 'next'
+import type { BlogPosting, WithContext } from 'schema-dts'
 
 type Props = {
   params: Promise<{ slug: string }>
+}
+
+const getAbsoluteImageUrl = (image: string | undefined, title: string) => {
+  const imagePath = image ?? `/og?title=${encodeURIComponent(title)}`
+
+  return new URL(imagePath, baseUrl).toString()
 }
 
 export async function generateStaticParams() {
@@ -16,35 +24,57 @@ export async function generateStaticParams() {
   }))
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({
+  params,
+}: Props): Promise<Metadata> {
   const { slug } = await params
   let post = getBlogPosts().find((post) => post.slug === slug)
   if (!post) {
-    return
+    return {}
   }
 
   let {
+    author = 'Stefan Garofalo',
     title,
     publishedAt: publishedTime,
     summary: description,
     image,
   } = post.metadata
-  let ogImage = image
-    ? image
-    : `${baseUrl}/og?title=${encodeURIComponent(title)}`
+  const articleUrl = `${baseUrl}/blog/${post.slug}`
+  const imageAlt = `${title} article hero showing an ASCII workflow graph from start to completion`
+  const ogImage = getAbsoluteImageUrl(image, title)
 
   return {
     title,
     description,
+    authors: [
+      {
+        name: author,
+        url: baseUrl,
+      },
+    ],
+    alternates: {
+      canonical: articleUrl,
+      types: {
+        'application/rss+xml': `${baseUrl}/rss`,
+      },
+    },
     openGraph: {
+      authors: [baseUrl],
       title,
       description,
+      locale: 'en_US',
       type: 'article',
       publishedTime,
-      url: `${baseUrl}/blog/${post.slug}`,
+      section: 'Software Engineering',
+      siteName: 'Stefan Garofalo',
+      url: articleUrl,
       images: [
         {
           url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: imageAlt,
         },
       ],
     },
@@ -52,7 +82,15 @@ export async function generateMetadata({ params }: Props) {
       card: 'summary_large_image',
       title,
       description,
-      images: [ogImage],
+      creator: '@stefangarofalo',
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: imageAlt,
+        },
+      ],
     },
   }
 }
@@ -66,6 +104,37 @@ export default async function Blog({ params }: Props) {
   }
 
   const author = post.metadata.author ?? 'Stefan Garofalo'
+  const articleUrl = `${baseUrl}/blog/${post.slug}`
+  const imageUrl = getAbsoluteImageUrl(
+    post.metadata.image,
+    post.metadata.title
+  )
+  const jsonLd: WithContext<BlogPosting> = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    '@id': `${articleUrl}#article`,
+    author: {
+      '@type': 'Person',
+      name: author,
+      sameAs: [
+        'https://x.com/stefangarofalo',
+        'https://github.com/stefan-garofalo',
+        'https://www.linkedin.com/in/stefan-garofalo/',
+      ],
+      url: baseUrl,
+    },
+    datePublished: post.metadata.publishedAt,
+    description: post.metadata.summary,
+    headline: post.metadata.title,
+    image: {
+      '@type': 'ImageObject',
+      url: imageUrl,
+    },
+    inLanguage: 'en',
+    isAccessibleForFree: true,
+    mainEntityOfPage: articleUrl,
+    url: articleUrl,
+  }
 
   return (
     <section className="article-page relative left-1/2 -ml-[50vw] w-screen [font-family:var(--font-geist-sans)]">
@@ -73,22 +142,7 @@ export default async function Blog({ params }: Props) {
         type="application/ld+json"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'BlogPosting',
-            headline: post.metadata.title,
-            datePublished: post.metadata.publishedAt,
-            dateModified: post.metadata.publishedAt,
-            description: post.metadata.summary,
-            image: post.metadata.image
-              ? `${baseUrl}${post.metadata.image}`
-              : `/og?title=${encodeURIComponent(post.metadata.title)}`,
-            url: `${baseUrl}/blog/${post.slug}`,
-            author: {
-              '@type': 'Person',
-              name: author,
-            },
-          }),
+          __html: JSON.stringify(jsonLd).replaceAll('<', '\\u003c'),
         }}
       />
       <ArticleRouteHero
