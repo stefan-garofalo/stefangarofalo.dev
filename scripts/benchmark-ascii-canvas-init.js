@@ -4,6 +4,37 @@
   const selector = '.ascii-field canvas'
   const windowMs = 2_000
   const touchIntervalMs = 50
+  const frameClockIntervalMs = 0
+  const nativeSetTimeout = window.setTimeout.bind(window)
+  const nativeClearTimeout = window.clearTimeout.bind(window)
+  const frameTimers = new Map()
+  let nextFrameId = 1
+  const benchmarkRequestAnimationFrame = (callback) => {
+    const id = nextFrameId
+    nextFrameId = nextFrameId === Number.MAX_SAFE_INTEGER ? 1 : nextFrameId + 1
+    const timer = nativeSetTimeout(() => {
+      frameTimers.delete(id)
+      callback(performance.now())
+    }, frameClockIntervalMs)
+    frameTimers.set(id, timer)
+    return id
+  }
+  const benchmarkCancelAnimationFrame = (id) => {
+    const timer = frameTimers.get(id)
+    if (timer === undefined) return
+    frameTimers.delete(id)
+    nativeClearTimeout(timer)
+  }
+  window.requestAnimationFrame = benchmarkRequestAnimationFrame
+  window.cancelAnimationFrame = benchmarkCancelAnimationFrame
+  const frameClock = Object.freeze({
+    driver: 'setTimeout',
+    installed:
+      window.requestAnimationFrame === benchmarkRequestAnimationFrame &&
+      window.cancelAnimationFrame === benchmarkCancelAnimationFrame,
+    intervalMs: frameClockIntervalMs,
+    strategy: 'next-task',
+  })
   const gestures = Object.freeze({
     idle: 'none',
     touch: 'horizontal',
@@ -184,6 +215,7 @@
       },
       elapsedMs,
       errors: [...errors],
+      frameClock,
       gesture: gestures[state.mode],
       hookInstalled,
       longTasks: {
@@ -274,6 +306,12 @@
   reset('idle')
   Object.defineProperty(window, '__ASCII_BENCHMARK__', {
     configurable: true,
-    value: Object.freeze({ hookInstalled, run, version: 3, windowMs }),
+    value: Object.freeze({
+      frameClock,
+      hookInstalled,
+      run,
+      version: 4,
+      windowMs,
+    }),
   })
 })()

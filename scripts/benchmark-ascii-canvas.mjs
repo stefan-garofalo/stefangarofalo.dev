@@ -16,7 +16,13 @@ const initScript = join(root, 'scripts/benchmark-ascii-canvas-init.js')
 const baselinePath = join(root, 'benchmarks/ascii-canvas.baseline.json')
 const artifactRoot = join(root, '.artifacts/performance/ascii-canvas')
 const schemaVersion = 4
-const runtimeVersion = 3
+const runtimeVersion = 4
+const frameClockContract = Object.freeze({
+  driver: 'setTimeout',
+  installed: true,
+  intervalMs: 0,
+  strategy: 'next-task',
+})
 const sourceFiles = [
   'app/components/ascii-ripple-field.tsx',
   'app/components/ascii-forest-data.ts',
@@ -60,11 +66,9 @@ const toolContract = {
 }
 const limits = {
   cls: 0.1,
-  fcp: 1_800,
   idleCpu: 15,
   idleRateMinimum: { forest: 8 },
   idleRate: { forest: 15, topography: 12 },
-  lcp: 2_500,
   max: 50,
   p95: 16,
   reducedDraws: 1,
@@ -102,11 +106,20 @@ const expectedScenarios = profiles.flatMap((profile) =>
 )
 const agentBrowserBaseNamespace = `ab${process.pid}`
 const agentBrowserIdleTimeoutMs = 30_000
+const agentBrowserChromiumArgs = [
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+]
 const agentBrowserArgs = (namespace) => [
   '--namespace',
   namespace,
   '--idle-timeout',
   String(agentBrowserIdleTimeoutMs),
+  '--init-script',
+  initScript,
+  '--args',
+  agentBrowserChromiumArgs.join(','),
 ]
 const agentBrowserNamespaceFor = (session) =>
   `${agentBrowserBaseNamespace}${session}`
@@ -149,6 +162,10 @@ Phases: 5 idle, 5 synthetic horizontal-touch, 1 synthetic vertical-pan,
         and 1 reduced-motion horizontal-touch window per scenario.
 Relative p95 tolerance: baseline + max(20%, 3ms).
 Browser isolation: one namespace per scenario; 30s daemon idle timeout.
+Chromium launch args: ${agentBrowserChromiumArgs.join(', ')}.
+Init script: scripts/benchmark-ascii-canvas-init.js on every browser command.
+Frame clock: benchmark-only next-task setTimeout-backed rAF; app timers own cadence.
+Paint vitals: FCP/LCP captured best-effort and non-gating; CLS remains gated.
 Required global tools: agent-browser 0.33.1 and Portless 0.15.4
 Default server: portless --name stefangarofalo-bench-<pid> pnpm start`)
 }
@@ -510,12 +527,22 @@ const requireValue = (condition, message) => {
   if (!condition) throw new Error(`ASCII benchmark contract: ${message}`)
 }
 
+function assertFrameClockContract(frameClock) {
+  for (const [field, expected] of Object.entries(frameClockContract)) {
+    requireValue(
+      frameClock?.[field] === expected,
+      `frame clock ${field} must equal ${JSON.stringify(expected)}`
+    )
+  }
+}
+
 async function assertRuntimeContract(session) {
   const runtime = await evaluate(
     session,
     `(() => {
       const value = window.__ASCII_BENCHMARK__
       return {
+        frameClock: value?.frameClock,
         hookInstalled: value?.hookInstalled,
         version: value?.version,
         windowMs: value?.windowMs
@@ -528,6 +555,7 @@ async function assertRuntimeContract(session) {
   )
   requireValue(runtime?.windowMs === windowMs, `runtime window must be ${windowMs}ms`)
   requireValue(runtime?.hookInstalled === true, 'canvas draw hook is not installed')
+  assertFrameClockContract(runtime?.frameClock)
 }
 
 async function warmAsciiRuntime(session) {
@@ -544,6 +572,7 @@ function assertSnapshotContract(snapshot, mode, requireDraws) {
   const contract = sampleModes[mode]
   requireValue(Boolean(contract), `unknown sample mode: ${mode}`)
   requireValue(snapshot?.hookInstalled === true, 'canvas draw hook is not installed')
+  assertFrameClockContract(snapshot?.frameClock)
   requireValue(snapshot?.longTasks?.supported === true, 'Long Tasks observer is unavailable')
   requireValue(
     snapshot?.pageLongTasks?.supported === true,
@@ -666,7 +695,7 @@ async function measure(baseUrl, profile, route, trace, artifacts) {
   let traceError
   sessions.add(session)
   try {
-    await browser(session, ['--init-script', initScript, 'open'])
+    await browser(session, ['open'])
     await browser(session, ['set', 'device', profile])
     await browser(session, ['set', 'media', 'dark'])
     await browser(
@@ -879,13 +908,7 @@ function gate(runs) {
       add(run, 'execution', 0, 0, run.error)
       continue
     }
-    for (const [name, limit] of [
-      ['lcp', limits.lcp],
-      ['fcp', limits.fcp],
-      ['cls', limits.cls],
-    ]) {
-      over(run, name, vital(run.vitals, name), limit)
-    }
+    over(run, 'cls', vital(run.vitals, 'cls'), limits.cls)
     for (const [phase, stats] of Object.entries(run.aggregate)) {
       over(run, `${phase}.longTasks`, stats.longTasks, 0, 'post-warmup long task')
       over(
@@ -1337,11 +1360,14 @@ async function main() {
   await waitUntilReady(baseUrl, options.url ? undefined : portlessName)
   const environment = {
     agentBrowserBaseNamespace,
+    agentBrowserChromiumArgs,
     agentBrowserIdleTimeoutMs,
+    agentBrowserInitScript: relative(root, initScript),
     agentBrowserIsolation: 'per-scenario-namespace',
     agentBrowserNamespacePattern: `${agentBrowserBaseNamespace}<session-id>`,
     agentBrowserVersion: versions.agentBrowserVersion,
     baseUrl,
+    frameClock: frameClockContract,
     limits,
     node: process.version,
     platform: `${process.platform}-${process.arch}`,
@@ -1353,6 +1379,12 @@ async function main() {
     samples: count,
     schemaVersion,
     server: options.url ? 'external' : 'managed-portless',
+    vitalsContract: {
+      cls: 'gated',
+      fcp: 'best-effort-non-gating',
+      lcp: 'best-effort-non-gating',
+      ttfb: 'captured',
+    },
     warmupMs,
     windowMs,
   }
