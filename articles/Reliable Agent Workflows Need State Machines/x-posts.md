@@ -22,12 +22,12 @@ https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
 ## Resuming Across Model Invocations
 
-When a linear multi-step skill workflow resumes, the model reconstructs its route from context. Accepted durable handoffs preserve outcomes and evidence, so the router can resume the same run.
+When a multi-step skill workflow resumes, the model reconstructs its route from context. Accepted durable handoffs preserve outcomes and evidence, so the router can resume the same run.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
 ## Completing the Whole Skill Workflow
 
-A linear multi-step sequence has no global completion check by itself. A terminal guard permits completion only when every obligation has fresh evidence for its current dependencies.
+A multi-step sequence has no global completion check by itself. A terminal guard permits completion only when every obligation has fresh evidence for its current dependencies.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines

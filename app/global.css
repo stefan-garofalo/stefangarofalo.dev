@@ -8,15 +8,15 @@
   --text-secondary: #a7a69e;
   --accent: #b8a0d9;
   --border: #31322d;
-  --sh-class: #c4c3bb;
+  --sh-class: var(--accent);
   --sh-identifier: #e8e7de;
   --sh-sign: #a7a69e;
   --sh-string: #b8b7af;
-  --sh-keyword: #d0cfc7;
+  --sh-keyword: var(--accent);
   --sh-comment: #777870;
   --sh-jsxliterals: #bbb9b1;
-  --sh-property: #b8b7af;
-  --sh-entity: #b8b7af;
+  --sh-property: var(--accent);
+  --sh-entity: var(--accent);
 }
 
 * {
@@ -138,7 +138,11 @@ a {
   line-height: 1.5;
 }
 
-.prose code span,
+.prose code,
+.prose code span {
+  font-weight: 500;
+}
+
 .prose strong {
   font-weight: 600;
 }
