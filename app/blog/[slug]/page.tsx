@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { CustomMDX } from 'app/components/mdx'
+import { ArticleRouteHero } from 'app/components/article-route-hero'
 import { formatDate, getBlogPosts } from 'app/blog/utils'
 import { baseUrl } from 'app/sitemap'
 
@@ -64,8 +65,10 @@ export default async function Blog({ params }: Props) {
     notFound()
   }
 
+  const author = post.metadata.author ?? 'Stefan Garofalo'
+
   return (
-    <section className="relative z-40 [font-family:var(--font-geist-sans)]">
+    <section className="article-page relative left-1/2 -ml-[50vw] w-screen [font-family:var(--font-geist-sans)]">
       <script
         type="application/ld+json"
         suppressHydrationWarning
@@ -83,20 +86,20 @@ export default async function Blog({ params }: Props) {
             url: `${baseUrl}/blog/${post.slug}`,
             author: {
               '@type': 'Person',
-              name: 'Stefan Garofalo',
+              name: author,
             },
           }),
         }}
       />
-      <h1 className="title font-semibold text-2xl tracking-tighter">
-        {post.metadata.title}
-      </h1>
-      <div className="flex justify-between items-center mt-2 mb-8 text-sm">
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {formatDate(post.metadata.publishedAt)}
-        </p>
-      </div>
-      <article className="prose">
+      <ArticleRouteHero
+        asciiBackground={post.metadata.asciiBackground}
+        author={author}
+        publishedAt={post.metadata.publishedAt}
+        publishedLabel={formatDate(post.metadata.publishedAt)}
+        seed={post.slug}
+        title={post.metadata.title}
+      />
+      <article className="prose relative z-20 mx-auto mt-16 w-full max-w-[800px] px-6 pb-[10vh] max-[767px]:mt-12 max-[767px]:px-5">
         <CustomMDX source={post.content} />
       </article>
     </section>

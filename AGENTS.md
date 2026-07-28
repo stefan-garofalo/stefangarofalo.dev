@@ -5,7 +5,7 @@ Read the nearest `AGENTS.md` from the repository root through every touched scop
 ## Surface Map
 
 - `app/` is the production Next.js App Router site. It owns public pages, navigation, blog rendering, RSS, sitemap, robots, metadata, Open Graph output, analytics, and visual design. Use `next-best-practices`, `next-cache-components`, `async-react-patterns`, `quality-types`, `frontend-domain-structure`, and `design-taste-frontend` when their concerns are touched.
-- `app/blog/posts/*.mdx` is the canonical article source. Filename slugs and frontmatter feed the blog index, article routes, RSS, sitemap, JSON-LD, and social metadata. Do not create a parallel content source.
+- `articles/*/article-v2.md` is the canonical article source. Its frontmatter feeds the blog index, article routes, RSS, sitemap, JSON-LD, and social metadata. Keep working notes and publication material beside it, but never duplicate the published body under `app/`.
 - `wiki/` is the dedicated internal Next.js/Fumadocs workspace for project specs, decisions, runbooks, and routed knowledge. Follow `wiki/AGENTS.md`; do not mix wiki content into the public blog.
 - `.agents/` is the neutral source for shared guidance, skills, hooks, and the subagent manifest. `.devpunks/` records scaffold authority, settings, handoffs, and generated specs. Edit final repo guidance rather than generated spec bodies.
 - `.claude/`, `.codex/`, `.cursor/`, and `.opencode/` are harness projections. Regenerate them from `.agents/scripts/sync-subagents.mjs` instead of maintaining divergent copies.
@@ -24,7 +24,7 @@ Read the nearest `AGENTS.md` from the repository root through every touched scop
 
 ## Cross-Surface Contracts
 
-- Keep the MDX article source, route generation, RSS, sitemap, metadata, JSON-LD, and Open Graph output aligned.
+- Keep each canonical article's frontmatter, route generation, RSS, sitemap, metadata, JSON-LD, and Open Graph output aligned.
 - Keep public-site behavior in `app/` and internal operational knowledge in `wiki/`.
 - Keep scaffold settings, neutral prompts, subagent ownership, hooks, and harness projections synchronized.
 - Preserve production URLs and deployment assumptions when changing metadata, callbacks, origins, feeds, or local development configuration.

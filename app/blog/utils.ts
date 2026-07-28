@@ -2,9 +2,12 @@ import fs from 'fs'
 import path from 'path'
 
 type Metadata = {
+  asciiBackground?: 'terrain' | 'topography'
+  slug: string
   title: string
   publishedAt: string
   summary: string
+  author?: string
   image?: string
 }
 
@@ -20,41 +23,52 @@ function parseFrontmatter(fileContent: string) {
     let [key, ...valueArr] = line.split(': ')
     let value = valueArr.join(': ').trim()
     value = value.replace(/^['"](.*)['"]$/, '$1') // Remove quotes
-    metadata[key.trim() as keyof Metadata] = value
+    const metadataKey = key.trim() as keyof Metadata
+
+    if (metadataKey === 'asciiBackground') {
+      if (value === 'terrain' || value === 'topography') {
+        metadata.asciiBackground = value
+      }
+      return
+    }
+
+    metadata[metadataKey] = value
   })
 
   return { metadata: metadata as Metadata, content }
 }
 
-function getMDXFiles(dir) {
+function getArticleFiles(dir: string) {
   if (!fs.existsSync(dir)) {
     return []
   }
 
-  return fs.readdirSync(dir).filter((file) => path.extname(file) === '.mdx')
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(dir, entry.name, 'article-v2.md'))
+    .filter((file) => fs.existsSync(file))
 }
 
-function readMDXFile(filePath) {
+function readArticleFile(filePath: string) {
   let rawContent = fs.readFileSync(filePath, 'utf-8')
   return parseFrontmatter(rawContent)
 }
 
-function getMDXData(dir) {
-  let mdxFiles = getMDXFiles(dir)
-  return mdxFiles.map((file) => {
-    let { metadata, content } = readMDXFile(path.join(dir, file))
-    let slug = path.basename(file, path.extname(file))
+function getArticleData(dir: string) {
+  return getArticleFiles(dir).map((file) => {
+    let { metadata, content } = readArticleFile(file)
 
     return {
       metadata,
-      slug,
+      slug: metadata.slug,
       content,
     }
   })
 }
 
 export function getBlogPosts() {
-  return getMDXData(path.join(process.cwd(), 'app', 'blog', 'posts'))
+  return getArticleData(path.join(process.cwd(), 'articles'))
 }
 
 export function formatDate(date: string, includeRelative = false) {

@@ -4,6 +4,7 @@ import { MDXRemote } from 'next-mdx-remote/rsc'
 import remarkGfm from 'remark-gfm'
 import { highlight } from 'sugar-high'
 import React from 'react'
+import { CodeBlockCopyButton } from './code-block-copy-button'
 
 function MarkdownTable({
   className = '',
@@ -51,12 +52,39 @@ function MarkdownTableCell(props: React.ComponentProps<'td'>) {
   )
 }
 
-function MarkdownPre(props: React.ComponentProps<'pre'>) {
+function getTextContent(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node)
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join('')
+  }
+
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+    return getTextContent(node.props.children)
+  }
+
+  return ''
+}
+
+function MarkdownPre({
+  children,
+  className = '',
+  ...props
+}: React.ComponentProps<'pre'>) {
+  const code = getTextContent(children).replace(/\n$/, '')
+
   return (
-    <pre
-      className="my-6 overflow-x-auto border border-[var(--border)] bg-[var(--surface)] p-4 font-mono text-sm leading-6"
-      {...props}
-    />
+    <div className="group relative my-6">
+      <pre
+        className={`!my-0 !pt-12 overflow-x-auto border border-[var(--border)] bg-[var(--surface)] p-4 font-mono text-sm leading-6 ${className}`.trim()}
+        {...props}
+      >
+        {children}
+      </pre>
+      <CodeBlockCopyButton code={code} />
+    </div>
   )
 }
 

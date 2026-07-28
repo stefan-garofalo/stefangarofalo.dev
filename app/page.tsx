@@ -8,7 +8,10 @@ export default function Page() {
 
   return (
     <section className="home-page relative left-1/2 -ml-[50vw] flex w-screen flex-1 flex-col">
-      <div className="home-hero relative isolate min-h-[calc(112.5dvh-72px)] max-[767px]:min-h-[calc(112.5dvh-64px)]">
+      <div
+        className="home-hero relative isolate min-h-[calc(112.5dvh-72px)] max-[767px]:min-h-[calc(112.5dvh-64px)]"
+        data-ascii-interaction-surface
+      >
         <AsciiRippleField />
         <div className="relative z-20 mx-auto flex min-h-[calc(112.5dvh-72px)] w-full max-w-[1560px] items-start px-[clamp(24px,3vw,48px)] pt-[calc(28.125dvh_-_18px)] max-[767px]:min-h-[calc(112.5dvh-64px)] max-[767px]:px-5 max-[767px]:pt-[calc(28.125dvh_-_16px)]">
           <div className="relative isolate w-full max-w-[560px]">
