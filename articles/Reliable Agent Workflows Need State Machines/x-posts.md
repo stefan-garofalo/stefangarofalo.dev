@@ -2,32 +2,32 @@
 
 Draft only. No publication action has been taken.
 
-## Local and Global Completion
+## Launch Thesis
 
-When implementation finishes with passing tests, review can still be pending. A final check keeps the workflow open until every required step has current evidence.
-
-https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
-
-## Separate Workflow Responsibilities
-
-If review can send work back to implementation, an ordered Markdown sequence cannot govern the loop. Declare routes, their conditions, and who owns each step's work and validation.
+A checklist records a sequence but cannot govern what happens when evidence changes the route. When obligations must survive model invocations, the workflow needs state-machine rules and durable state.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
-## Accepted Durable Handoffs
+## Agent Graph Engineering
 
-When an invocation ends after implementation, the next run needs a reliable checkpoint. A saved handoff records the accepted outcome and validation evidence so the workflow can resume.
-
-https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
-
-## Dependency-Aware Repair
-
-When review finds a blocker, the workflow returns the task to implementation for a new revision. Earlier evidence becomes stale only when the artifact or dependency it checked has changed.
+A Durable Workflow Graph separates three responsibilities. Graph topology defines routes, state-machine semantics decide which transition is legal, and an actor-like gate owns work and validation.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
 
-## Small Default Contract
+## Stable Gate Ownership
 
-When a skill must survive interruption or repair, it needs explicit routes, accepted handoffs, and a final check. Direct composition fits atomic work that is cheap to discard and restart.
+A gate may invoke narrower skills, but it still accepts their output, validates the result, and returns one outcome. This actor-like boundary keeps ownership stable while internal execution changes.
+
+https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
+
+## Durable Handoffs
+
+At gate exit, the agent validates the outcome, persists a handoff, and returns control to the router. Once accepted, the handoff lets routing resume from recorded state instead of conversation memory.
+
+https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
+
+## Terminal Guard
+
+A terminal guard confirms global completion only when every obligation remains satisfied for current dependencies. If no route is eligible and the guard is false, the router reports what is missing.
 
 https://stefangarofalo.dev/blog/reliable-agent-workflows-need-state-machines
