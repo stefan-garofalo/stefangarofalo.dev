@@ -76,7 +76,7 @@ export default function RootLayout({
       className={`dark ${GeistSans.variable} ${jetBrainsMono.variable}`}
     >
       <body>
-        <main className="mx-auto flex min-h-screen w-full max-w-[1560px] flex-col px-[clamp(24px,3vw,48px)] max-[767px]:px-5">
+        <main className="mx-auto flex min-h-lvh w-full max-w-[1560px] flex-col px-[clamp(24px,3vw,48px)] max-[767px]:px-5">
           <Navbar />
           <div className="flex min-w-0 flex-1 flex-col [&>section:not(.home-page):not(.article-page)]:mx-auto [&>section:not(.home-page):not(.article-page)]:mt-14 [&>section:not(.home-page):not(.article-page)]:mb-20 [&>section:not(.home-page):not(.article-page)]:w-full [&>section:not(.home-page):not(.article-page)]:max-w-[800px] max-[767px]:[&>section:not(.home-page):not(.article-page)]:mt-10 max-[767px]:[&>section:not(.home-page):not(.article-page)]:mb-[72px]">
             {children}

@@ -23,17 +23,17 @@ export function ArticleRouteHero({
 }: ArticleRouteHeroProps) {
   return (
     <header
-      className="relative isolate min-h-[calc(100vh-72px)] overflow-hidden max-[767px]:min-h-[calc(100vh-64px)]"
+      className="relative isolate min-h-[calc(100lvh-72px)] overflow-hidden max-[767px]:min-h-[calc(100lvh-64px)]"
       data-ascii-interaction-surface
     >
       <AsciiRippleField
         background={asciiBackground}
-        className="h-[100vh]"
+        className="h-[100lvh]"
         seed={seed}
         variant="workflow-route"
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[58%] bg-[linear-gradient(to_top,rgba(17,18,15,0.92)_0%,rgba(17,18,15,0.72)_24%,rgba(17,18,15,0.38)_48%,rgba(17,18,15,0.12)_72%,rgba(17,18,15,0)_100%)]" />
-      <div className="absolute inset-x-0 bottom-[clamp(44px,7vh,84px)] z-20 mx-auto w-full max-w-[1560px] px-[clamp(24px,3vw,48px)] max-[767px]:bottom-10 max-[767px]:px-5">
+      <div className="absolute inset-x-0 bottom-[clamp(44px,7lvh,84px)] z-20 mx-auto w-full max-w-[1560px] px-[clamp(24px,3vw,48px)] max-[767px]:bottom-10 max-[767px]:px-5">
         <div className="relative isolate max-w-[1040px]">
           <ShadowGradient
             className="-inset-y-12 -left-12 right-[18%] max-[767px]:-inset-y-8 max-[767px]:-left-5 max-[767px]:right-0"
