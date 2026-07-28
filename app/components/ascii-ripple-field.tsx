@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from 'react'
 
-const GLYPHS = ['/', '+', '*'] as const
+const TERRAIN_GLYPHS = ['.', ':', '-', '=', '+', '*', '#', '%', '@'] as const
 const RIPPLE_FRAME_INTERVAL = 1000 / 30
 const AMBIENT_FRAME_INTERVAL = 1000 / 9
+const AMBIENT_PHASE_SPEED = 2.5
 const DAMPING = 0.96
 const SETTLED_ENERGY = 0.003
 const ASCII_INK = '#5e605b'
@@ -553,9 +554,12 @@ function createBaseField(columns: number, rows: number, phase: number) {
 }
 
 function glyphFor(value: number) {
-  if (value < 0.42) return GLYPHS[0]
-  if (value < 0.62) return GLYPHS[1]
-  return GLYPHS[2]
+  const glyphIndex = Math.min(
+    TERRAIN_GLYPHS.length - 1,
+    Math.floor(clamp(value, 0, 1) * TERRAIN_GLYPHS.length)
+  )
+
+  return TERRAIN_GLYPHS[glyphIndex]
 }
 
 function glyphSizeFor(
@@ -1022,10 +1026,11 @@ export function AsciiRippleField({
           time - lastAmbientFrameTime >= AMBIENT_FRAME_INTERVAL)
       ) {
         if (lastAmbientFrameTime !== 0) {
-          ambientPhase += Math.min(
-            (time - lastAmbientFrameTime) / 1000,
-            AMBIENT_FRAME_INTERVAL / 1000
-          )
+          ambientPhase +=
+            Math.min(
+              (time - lastAmbientFrameTime) / 1000,
+              AMBIENT_FRAME_INTERVAL / 1000
+            ) * AMBIENT_PHASE_SPEED
         }
         lastAmbientFrameTime = time
         fillBaseField(baseField, columns, rows, ambientPhase)
