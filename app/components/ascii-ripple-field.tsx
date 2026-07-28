@@ -12,6 +12,11 @@ const BASE_GLYPH_SIZE = 10
 const DISTURBANCE_RADIUS = 10
 const DISTURBANCE_STRENGTH = 3.6
 const MAX_DISTURBANCE = 8
+const MOBILE_AUTONOMOUS_INTERVAL = 2400
+const MOBILE_AUTONOMOUS_RADIUS = 6
+const MOBILE_AUTONOMOUS_STRENGTH = 0.72
+const MOBILE_AUTONOMOUS_MAX_DISTURBANCE = 1.6
+const MOBILE_TOUCH_FRAME_INTERVAL = 1000 / 20
 const ROUTE_INK = '#b8a0d9'
 const TOPOGRAPHY_INK = '#70726b'
 
@@ -804,12 +809,14 @@ export function AsciiRippleField({
     let latestEnergy = 0
     let isIntersecting = true
     let disposed = false
+    let autonomousStep = 0
+    let autonomousTimer = 0
+    let lastTouchDisturbanceTime = 0
     let routeIndices: number[] = []
     let routeIndexSet = new Set<number>()
     let routeNodes: RouteNode[] = []
     const canAnimate = () =>
       !reducedMotion.matches &&
-      !coarsePointer.matches &&
       isIntersecting &&
       !document.hidden
 
@@ -1130,15 +1137,21 @@ export function AsciiRippleField({
       draw()
     }
 
-    const disturb = (column: number, row: number) => {
+    const disturb = (
+      column: number,
+      row: number,
+      radius = DISTURBANCE_RADIUS,
+      strength = DISTURBANCE_STRENGTH,
+      maximum = MAX_DISTURBANCE
+    ) => {
       for (
-        let targetRow = Math.max(1, row - DISTURBANCE_RADIUS);
-        targetRow <= Math.min(rows - 2, row + DISTURBANCE_RADIUS);
+        let targetRow = Math.max(1, row - radius);
+        targetRow <= Math.min(rows - 2, row + radius);
         targetRow += 1
       ) {
         for (
-          let targetColumn = Math.max(1, column - DISTURBANCE_RADIUS);
-          targetColumn <= Math.min(columns - 2, column + DISTURBANCE_RADIUS);
+          let targetColumn = Math.max(1, column - radius);
+          targetColumn <= Math.min(columns - 2, column + radius);
           targetColumn += 1
         ) {
           const distance = Math.hypot(
@@ -1146,20 +1159,18 @@ export function AsciiRippleField({
             targetRow - row
           )
 
-          if (distance <= DISTURBANCE_RADIUS) {
-            const falloff = 1 - distance / DISTURBANCE_RADIUS
+          if (distance <= radius) {
+            const falloff = 1 - distance / radius
             const index = targetRow * columns + targetColumn
             const impulse =
-              Math.cos(
-                (distance / DISTURBANCE_RADIUS) * Math.PI * 0.5
-              ) *
+              Math.cos((distance / radius) * Math.PI * 0.5) *
               falloff *
-              DISTURBANCE_STRENGTH
+              strength
 
             currentField[index] = clamp(
               currentField[index] + impulse,
-              -MAX_DISTURBANCE,
-              MAX_DISTURBANCE
+              -maximum,
+              maximum
             )
           }
         }
@@ -1169,9 +1180,7 @@ export function AsciiRippleField({
       scheduleFrame()
     }
 
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!canAnimate()) return
-
+    const disturbAtPointer = (event: PointerEvent) => {
       const bounds = canvas.getBoundingClientRect()
       const column = Math.floor(
         ((event.clientX - bounds.left) / bounds.width) * columns
@@ -1183,6 +1192,53 @@ export function AsciiRippleField({
       disturb(
         clamp(column, 1, Math.max(1, columns - 2)),
         clamp(row, 1, Math.max(1, rows - 2))
+      )
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch' || !canAnimate()) {
+        return
+      }
+
+      lastTouchDisturbanceTime = event.timeStamp
+      disturbAtPointer(event)
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!canAnimate()) return
+
+      if (event.pointerType === 'touch') {
+        if (
+          event.timeStamp - lastTouchDisturbanceTime <
+          MOBILE_TOUCH_FRAME_INTERVAL
+        ) {
+          return
+        }
+        lastTouchDisturbanceTime = event.timeStamp
+      }
+
+      disturbAtPointer(event)
+    }
+
+    const addAutonomousDisturbance = () => {
+      if (!coarsePointer.matches || !canAnimate() || columns < 3 || rows < 3) {
+        return
+      }
+
+      autonomousStep += 1
+      const column = Math.round(
+        (0.5 + Math.sin(autonomousStep * 1.618) * 0.28) * (columns - 1)
+      )
+      const row = Math.round(
+        (0.5 + Math.sin(autonomousStep * 1.113 + 0.8) * 0.22) * (rows - 1)
+      )
+
+      disturb(
+        clamp(column, 1, columns - 2),
+        clamp(row, 1, rows - 2),
+        MOBILE_AUTONOMOUS_RADIUS,
+        MOBILE_AUTONOMOUS_STRENGTH,
+        MOBILE_AUTONOMOUS_MAX_DISTURBANCE
       )
     }
 
@@ -1209,6 +1265,8 @@ export function AsciiRippleField({
       latestEnergy = 0
       lastFrameTime = 0
       lastAmbientFrameTime = 0
+      autonomousStep = 0
+      lastTouchDisturbanceTime = 0
       draw()
       scheduleFrame()
     }
@@ -1230,12 +1288,19 @@ export function AsciiRippleField({
 
     resizeObserver.observe(canvas)
     intersectionObserver.observe(canvas)
+    interactionSurface.addEventListener('pointerdown', handlePointerDown, {
+      passive: true,
+    })
     interactionSurface.addEventListener('pointermove', handlePointerMove, {
       passive: true,
     })
     document.addEventListener('visibilitychange', handleVisibilityChange)
     reducedMotion.addEventListener('change', handleMotionPreferenceChange)
     coarsePointer.addEventListener('change', handleMotionPreferenceChange)
+    autonomousTimer = window.setInterval(
+      addAutonomousDisturbance,
+      MOBILE_AUTONOMOUS_INTERVAL
+    )
     resize()
     scheduleFrame()
 
@@ -1249,8 +1314,10 @@ export function AsciiRippleField({
     return () => {
       disposed = true
       if (animationFrame) cancelAnimationFrame(animationFrame)
+      window.clearInterval(autonomousTimer)
       resizeObserver.disconnect()
       intersectionObserver.disconnect()
+      interactionSurface.removeEventListener('pointerdown', handlePointerDown)
       interactionSurface.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       reducedMotion.removeEventListener('change', handleMotionPreferenceChange)
