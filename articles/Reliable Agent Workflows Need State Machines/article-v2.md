@@ -1,7 +1,7 @@
 ---
 slug: reliable-agent-workflows-need-state-machines
 title: Reliable agent workflows need state machines
-publishedAt: 2026-07-27
+publishedAt: 2026-07-28
 summary: A Durable Workflow Graph combines state-machine transitions with actor-style gates so long-running skill workflows can resume from durable evidence and account for every required step.
 author: Stefan Garofalo
 asciiBackground: topography
