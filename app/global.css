@@ -96,6 +96,10 @@ a {
   background: var(--text-secondary);
 }
 
+[data-ascii-interaction-surface] {
+  touch-action: pan-y pinch-zoom;
+}
+
 .ascii-field {
   position: absolute;
   z-index: 0;
@@ -111,7 +115,7 @@ a {
   display: block;
   width: 100%;
   height: 100%;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
     Menlo, Monaco, Consolas, monospace;
 }

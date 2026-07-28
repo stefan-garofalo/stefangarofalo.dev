@@ -1,0 +1,321 @@
+---
+title: ASCII canvas performance
+description: Reproduce and diagnose the mobile ASCII canvas performance suite
+domain: performance
+type: flow
+surface: project
+permission: project
+status: implemented
+links: []
+learning_type: knowledge
+date: 2026-07-28
+module: app
+component: AsciiRippleField
+severity: high
+source:
+  - app/components/ascii-ripple-field.tsx
+  - scripts/benchmark-ascii-canvas.mjs
+  - .artifacts/performance/ascii-canvas/
+referenced_files:
+  - app/components/ascii-ripple-field.tsx
+  - app/global.css
+  - scripts/benchmark-ascii-canvas.mjs
+  - scripts/benchmark-ascii-canvas-init.js
+  - benchmarks/ascii-canvas.baseline.json
+applies_when:
+  - adding, optimizing, benchmarking, or reviewing any client-rendered canvas
+guidance: Separate idle, active, and input-intent work; cap rendering cost; verify every state with isolated measurements.
+why_it_matters: Per-frame work, backing-store growth, and accidental touch activation compound into mobile jank and battery cost.
+future_use_hooks:
+  - Future canvas acceptance checklist in this runbook
+  - Runbooks index discovery link
+ingested: true
+last_ingested: 2026-07-28
+created: 2026-07-28
+updated: 2026-07-28
+---
+
+## Purpose
+
+Use this suite to catch canvas rendering regressions on the homepage forest and
+article topography. It builds and benchmarks the production site with isolated
+mobile browser sessions.
+
+## Prerequisites
+
+Install these exact global tool versions:
+
+- `agent-browser 0.33.1`
+- Portless `0.15.4`
+
+The runner fails preflight when either version differs.
+
+## Run the suite
+
+```sh
+pnpm perf:ascii
+```
+
+This builds the site, starts it through an isolated Portless name, measures all
+four scenarios, applies the absolute gates, and compares the result with
+`benchmarks/ascii-canvas.baseline.json`.
+
+Capture DevTools traces when a normal run needs deeper diagnosis:
+
+```sh
+pnpm perf:ascii:trace
+```
+
+## Update the baseline
+
+Only update the managed baseline from committed, clean workload sources:
+
+```sh
+pnpm perf:ascii:baseline
+```
+
+The command refuses dirty workload sources, incomplete scenarios, runtime
+errors, and failed gates. Do not use the dirty-source override for the committed
+baseline.
+
+To record an external historical build, serve the named commit and declare the
+same revision:
+
+```sh
+node scripts/benchmark-ascii-canvas.mjs \
+  --url <running-historical-build-url> \
+  --update-baseline \
+  --source-revision <commit> \
+  --allow-failing-baseline
+```
+
+`--url` and `--source-revision` are required together for an external baseline.
+`--allow-failing-baseline` permits only these known historical failures in an
+otherwise complete run:
+
+- topography idle rate
+- topography vertical-pan draw count
+- forest vertical-pan rate
+
+It refuses every other failure, including partial, invalid, or errored scenario
+sets.
+
+## Measurement contract
+
+The suite emulates Galaxy S25 and iPhone 16 Pro. Each profile measures:
+
+- `/` for the ASCII forest
+- `/blog/reliable-agent-workflows-need-state-machines` for article topography
+- five exact 2-second idle windows
+- five exact 2-second sustained horizontal-touch windows
+- one exact 2-second vertical-pan window
+- one exact 2-second reduced-motion horizontal-touch window
+
+Vertical-pan, idle, and horizontal-touch phases are state-isolated. Each starts
+after a fresh load or reload and a 3-second warmup. Reduced motion is applied
+after the horizontal-touch phase. Synthetic touch is labelled with its gesture
+in the result and must be observed as a touch pointer.
+
+## Pass contract
+
+| Area               | Absolute gate                                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cadence            | Forest idle: 8–15 fps. Topography idle: at most 12 fps and may be 0. Horizontal touch: 16–32 fps. Vertical topography: at most one draw in 2 seconds. Vertical forest: at most 15 fps. |
+| Canvas CPU         | Idle at most 15%; horizontal touch and vertical pan at most 25%.                                                                                                                       |
+| Draw duration      | p95 at most 16 ms; maximum at most 50 ms.                                                                                                                                              |
+| Reduced motion     | At most one draw in 2 seconds.                                                                                                                                                         |
+| Web vitals         | FCP at most 1,800 ms; LCP at most 2,500 ms; CLS at most 0.1.                                                                                                                           |
+| Backing resolution | Effective canvas DPR at most 1.75, with one backing-pixel rounding tolerance per axis.                                                                                                 |
+| Blocking work      | Zero canvas-correlated and page-wide long tasks; zero canvas and page TBT.                                                                                                             |
+| Runtime            | No browser or sampled page errors; required canvas hooks and Long Tasks observers must be available.                                                                                   |
+
+The committed baseline adds regression gates. Idle, horizontal-touch, and
+vertical-pan p95 may increase by no more than the larger of 20% or 3 ms. Canvas
+CPU may increase by no more than 25% plus one percentage point. Forest idle and
+horizontal-touch cadence may not fall below 70% of the baseline. Vertical-pan
+cadence has an upper regression limit of baseline plus 25% and 0.5 fps; it has
+no 70% minimum. Long tasks and TBT may not increase. The absolute draw maximum
+remains 50 ms.
+
+## Provenance and refusal rules
+
+Baseline schema v4 records:
+
+- exact tool versions, sample count, and 2-second window
+- the four profile-and-route scenarios and all measured phases
+- SHA-256 fingerprints for the harness and workload sources
+- the source commit, source state, and dirty workload files
+- direct route and container sources, including the page, layout, navigation,
+  article route, article utilities, and canonical article source
+
+A changed harness fingerprint invalidates comparison until the baseline is
+regenerated. Tool, schema, sample, window, scenario, or provenance mismatches
+also invalidate it. Baseline writes are atomic and are refused when coverage is
+partial, measurements error, provenance is unsafe, or gates fail without the
+explicit historical override.
+
+## Guidance for future canvas components
+
+Apply these rules to every client-rendered canvas, not only the ASCII field.
+
+### Schedule state, not a permanent loop
+
+- Give idle and active states separate cadence budgets. A settled canvas should
+  stop or run much slower than an interacting canvas.
+- Use a timer for pacing and `requestAnimationFrame` for the actual paint.
+  Cancel both when no frame is needed.
+- Keep animation time bounded after delayed frames. Do not let a backgrounded
+  tab produce one oversized simulation step when it resumes.
+- Avoid doing active physics during idle animation. Treat ambient visuals and
+  user-driven simulation as separate work.
+
+### Bound pixels and calculations
+
+- Cap effective DPR before allocating the backing store. The current contract
+  uses 1.75, including a one-backing-pixel rounding tolerance per axis.
+- Cache canvas bounds and document-space origin outside pointer handlers.
+  Refresh them on resize and skip backing-store, grid, and field reconstruction
+  when dimensions and DPR are unchanged.
+- Cull geometry and physics to the visible area plus the smallest halo needed
+  for continuity. Do not simulate offscreen columns and rows by default.
+
+### Repaint only changed regions
+
+- For localized motion, union the previous and current dirty bounds so the old
+  glyphs are repaired as the disturbance moves or settles.
+- Clip, clear, and repaint that union. Fall back to a full repaint when the
+  dirty area is large enough that clipping no longer saves work.
+- Force a repair repaint after resize, font readiness, theme changes, reduced
+  motion changes, and any other event that invalidates static pixels.
+
+### Stop work outside the usable lifecycle
+
+- Gate animation on document visibility, canvas intersection, and reduced-motion
+  preference.
+- On hidden, offscreen, preference-change, and unmount paths, cancel frame and
+  autonomous timers. Reset time bases before resuming.
+- Disconnect observers and remove every listener during cleanup. A cancelled
+  lifecycle must not leave a queued callback that can restart work.
+
+### Resolve input intent before adding energy
+
+- Touch down records intent only. It must not create an impulse.
+- Wait for the axis threshold before classifying a gesture. The current field
+  uses 8 px.
+- Keep vertical movement inert so page scrolling does not activate the canvas.
+  A pending tap activates once on pointer up. Pointer cancel stays inert.
+- Preserve browser navigation gestures with `touch-action: pan-y pinch-zoom`.
+- Benchmark horizontal and vertical gestures separately with axis-pure event
+  sequences. Mixed diagonal gestures make intent regressions hard to diagnose.
+
+## Benchmark design rules
+
+- Reload and warm each stateful phase before measuring it. A prior touch must
+  not leak energy into idle or vertical-pan results.
+- Use a separate browser namespace for every profile-and-route scenario. Browser
+  process state must not leak between scenarios.
+- Capture idle, sustained horizontal touch, vertical pan, and reduced motion as
+  distinct phases. Do not infer one from another.
+- Fail closed when vitals, runtime errors, canvas hooks, Long Tasks observers,
+  device metadata, or expected gestures are missing. A no-draw error must name
+  the failing phase.
+- Fingerprint the harness and all direct workload, route, container, style, and
+  content sources. Record the exact source commit and source state.
+- Keep the historical override narrow and named. Never let it turn arbitrary
+  failures into a baseline.
+
+Host browser scheduling introduces short-run jitter. Relative p95 therefore uses
+baseline plus the larger of 20% or 3 ms. This absorbs bounded host noise without
+weakening the absolute 50 ms maximum that catches visible stalls.
+
+## Future canvas acceptance checklist
+
+A new or materially changed canvas is accepted only when:
+
+- [ ] All mobile profiles and routes complete with five exact 2-second idle and
+      horizontal-touch samples, one exact 2-second vertical-pan sample, and one
+      reduced-motion sample.
+- [ ] Stateful phases are isolated by reload and a 3-second warmup.
+- [ ] Every profile-and-route scenario uses a separate browser namespace.
+- [ ] Idle and active cadence match the component's declared budget. For the
+      ASCII field: forest idle is 8–15 fps, horizontal touch is 16–32 fps,
+      topography vertical pan draws at most once in 2 seconds, and forest
+      vertical pan stays at or below 15 fps.
+- [ ] Idle CPU is at most 15%; active and vertical CPU are at most 25%.
+- [ ] Draw p95 is at most 16 ms, draw maximum is at most 50 ms, and baseline
+      p95 stays within `+max(20%, 3 ms)`.
+- [ ] FCP is at most 1,800 ms, LCP is at most 2,500 ms, and CLS is at most 0.1.
+- [ ] Effective DPR is at most 1.75 with only the documented rounding
+      tolerance.
+- [ ] Canvas-correlated and page-wide long tasks and TBT are zero.
+- [ ] Browser errors, sampled page errors, missing hooks, missing observers,
+      incomplete coverage, and unobserved touch gestures are all zero. Any
+      no-draw failure identifies its phase.
+- [ ] Offscreen, hidden, reduced-motion, pointer-cancel, and unmount paths leave
+      no active animation, physics, or autonomous timer.
+- [ ] Vertical pan is inert, tap activates on pointer up, horizontal drag
+      activates after the threshold, and pinch zoom remains available.
+- [ ] The baseline records exact tool versions, source commit/state, complete
+      source fingerprints, scenarios, phases, and sample contract.
+
+## Read the artifacts
+
+Every run writes under:
+
+```text
+.artifacts/performance/ascii-canvas/<timestamp>/
+```
+
+- `summary.json` is the first stop: pass state, baseline state, failed gates,
+  and scenario aggregates.
+- `runs.jsonl` contains the raw idle, horizontal-touch, vertical-pan,
+  reduced-motion, error, and canvas samples.
+- `environment.json` records tools, limits, routes, profiles, provenance, and
+  the isolated browser/server identity.
+- `failure-trace-*.json` files exist for trace runs and can be opened in the
+  Chrome DevTools Performance panel.
+
+## Observed improvement
+
+Artifact `.artifacts/performance/ascii-canvas/2026-07-28T16-50-41-286Z` records
+the optimized implementation against historical commit `5a3626b`:
+
+| Scenario                    | Galaxy S25                                             | iPhone 16 Pro                                            |
+| --------------------------- | ------------------------------------------------------ | -------------------------------------------------------- |
+| Forest idle CPU             | 2.165% → 2.055% (-5.1%)                                | 2.28% → 2.525% (+10.7%)                                  |
+| Forest horizontal-touch CPU | 4.31% → 4.105% (-4.8%)                                 | 4.82% → 4.4% (-8.7%)                                     |
+| Forest vertical pan         | CPU 5.17% → 2.47% (-52.2%); 22 → 10 fps; 44 → 20 draws | CPU 4.735% → 2.105% (-55.5%); 23 → 10 fps; 46 → 20 draws |
+| Topography idle CPU         | 6.15% → 0                                              | 6.35% → 0                                                |
+| Topography horizontal touch | 6.375% → 4.945% (-22.4%)                               | 7.62% → 4.395% (-42.3%)                                  |
+| Topography vertical pan     | CPU 6.535% → 0; 22 → 0 fps; 44 → 0 draws               | CPU 7.545% → 0; 22 → 0 fps; 44 → 0 draws                 |
+
+Every measured phase reported zero canvas-correlated and page-wide long tasks
+and zero TBT.
+
+This artifact is archived historical audit evidence. Refresh the committed
+baseline from the accepted optimized clean commit before using it for future
+regression detection. Old topography's plain `requestAnimationFrame` loop can
+freeze under modern headless lifecycle behavior, so do not force or hand-edit a
+historical baseline to make it comparable.
+
+## Troubleshooting
+
+- If a run fails, inspect `summary.json`, then the matching raw samples in
+  `runs.jsonl`.
+- Rerun with `pnpm perf:ascii:trace` when draw duration or page blocking gates
+  need a timeline.
+- Regenerate the baseline after an intentional harness-contract change. Do not
+  edit its version, fingerprints, provenance, or scenario values by hand.
+- Use the archived audit artifact for historical comparisons when the old
+  implementation freezes under current headless lifecycle behavior.
+- Treat an invalid baseline as a contract mismatch, not as a performance
+  regression.
+- Treat a missing hook, observer, draw, touch pointer, or scenario as a broken
+  measurement. The runner fails closed instead of accepting it.
+
+## Limitation
+
+These results are host-relative browser emulation. They reproduce mobile
+viewport, media, and pointer behavior, but do not model a phone CPU. Use them
+for repeatable regression detection, not as claims about physical-device frame
+times.

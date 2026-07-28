@@ -3,7 +3,10 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start"
+    "start": "next start",
+    "perf:ascii": "pnpm build && node scripts/benchmark-ascii-canvas.mjs",
+    "perf:ascii:baseline": "pnpm build && node scripts/benchmark-ascii-canvas.mjs --update-baseline",
+    "perf:ascii:trace": "pnpm build && node scripts/benchmark-ascii-canvas.mjs --trace"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.0.0-alpha.13",

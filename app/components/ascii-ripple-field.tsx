@@ -27,8 +27,10 @@ const RIPPLE_FRAME_INTERVAL = 1000 / 30
 const AMBIENT_FRAME_INTERVAL = 1000 / 9
 const AMBIENT_PHASE_SPEED = 2.5
 const FOREST_FRAME_INTERVAL = 1000 / 12
+const MOBILE_FOREST_FRAME_INTERVAL = 1000 / 10
 const FOREST_CELL_ASPECT = 0.56
 const DAMPING = 0.96
+const MOBILE_DAMPING = 0.9
 const SETTLED_ENERGY = 0.003
 const ASCII_INK = '#5e605b'
 const FOREST_INK = '#7b7d76'
@@ -37,11 +39,21 @@ const BASE_GLYPH_SIZE = 10
 const DISTURBANCE_RADIUS = 10
 const DISTURBANCE_STRENGTH = 3.6
 const MAX_DISTURBANCE = 8
-const MOBILE_AUTONOMOUS_INTERVAL = 2400
+const FOREST_PAINT_COLUMN_HALO = 4
+const FOREST_PHYSICS_PADDING = DISTURBANCE_RADIUS + 1
+const MOBILE_AUTONOMOUS_INTERVAL = 8000
 const MOBILE_AUTONOMOUS_RADIUS = 6
 const MOBILE_AUTONOMOUS_STRENGTH = 0.72
 const MOBILE_AUTONOMOUS_MAX_DISTURBANCE = 1.6
 const MOBILE_TOUCH_FRAME_INTERVAL = 1000 / 20
+const MOBILE_TOUCH_PAN_THRESHOLD = 8
+const MOBILE_TOUCH_RADIUS = 6
+const MOBILE_TOUCH_STRENGTH = 0.72
+const MOBILE_TOUCH_MAX_DISTURBANCE = 1.6
+const TOPOGRAPHY_VISIBLE_WAVE = 0.025
+const TOPOGRAPHY_FULL_PAINT_RATIO = 0.7
+const TOPOGRAPHY_DIRTY_COLUMN_PADDING = 3
+const TOPOGRAPHY_DIRTY_ROW_PADDING = 2
 const ROUTE_INK = '#b8a0d9'
 const ROUTE_LABEL_INK = '#d2d0c9'
 const CANVAS_BACKDROP = '#11120f'
@@ -61,6 +73,13 @@ type TopographyCell = {
   glyph: string
   lensGlyph?: string
   size: number
+}
+
+type PixelBounds = {
+  bottom: number
+  left: number
+  right: number
+  top: number
 }
 
 type ForestCell = {
@@ -683,19 +702,29 @@ function createForestCells(width: number, height: number) {
     }
   }
 
-  const firstColumn = clamp(
-    Math.floor(-offsetX / cellWidth) - 1,
+  const paintFirstColumn = clamp(
+    Math.floor(-offsetX / cellWidth) - FOREST_PAINT_COLUMN_HALO,
     0,
     FOREST_ASCII_WIDTH - 1
   )
-  const lastColumn = clamp(
-    Math.ceil((width - offsetX) / cellWidth) + 1,
+  const paintLastColumn = clamp(
+    Math.ceil((width - offsetX) / cellWidth) + FOREST_PAINT_COLUMN_HALO,
     0,
     FOREST_ASCII_WIDTH - 1
+  )
+  const paintFirstRow = clamp(
+    Math.floor(-offsetY / lineHeight) - 1,
+    0,
+    totalRows - 1
+  )
+  const paintLastRow = clamp(
+    Math.ceil((height - offsetY) / lineHeight) + 1,
+    0,
+    totalRows - 1
   )
   const cells: ForestCell[] = []
 
-  for (let row = 0; row < totalRows; row += 1) {
+  for (let row = paintFirstRow; row <= paintLastRow; row += 1) {
     const isFiller = row < TOP_FILLER_ROWS
     const verticalPosition = clamp(
       (row - TOP_FILLER_ROWS) / Math.max(FOREST_ASCII_HEIGHT - 1, 1),
@@ -703,7 +732,11 @@ function createForestCells(width: number, height: number) {
       1
     )
 
-    for (let column = firstColumn; column <= lastColumn; column += 1) {
+    for (
+      let column = paintFirstColumn;
+      column <= paintLastColumn;
+      column += 1
+    ) {
       const index = row * FOREST_ASCII_WIDTH + column
       const density = densities[index]
       const left = column > 0 ? densities[index - 1] : density
@@ -764,7 +797,17 @@ function createForestCells(width: number, height: number) {
     }
   }
 
-  return { cellWidth, cells, lineHeight, offsetX, offsetY }
+  return {
+    cellWidth,
+    cells,
+    lineHeight,
+    offsetX,
+    offsetY,
+    paintFirstColumn,
+    paintFirstRow,
+    paintLastColumn,
+    paintLastRow,
+  }
 }
 
 function glyphSizeFor(
@@ -1037,13 +1080,25 @@ export function AsciiRippleField({
     let lineHeight = 15
     let baseField = new Float32Array()
     let topographyCells: TopographyCell[] = []
+    let previousVisibleRippleBounds: PixelBounds | null = null
     let forestCells: ForestCell[] = []
+    let forestPhysicsFirstColumn = 1
+    let forestPhysicsFirstRow = 1
+    let forestPhysicsLastColumn = 1
+    let forestPhysicsLastRow = 1
     let forestOffsetX = 0
     let forestOffsetY = 0
     let currentField = new Float32Array()
     let previousField = new Float32Array()
     let fontFamily = getComputedStyle(canvas).fontFamily
+    let canvasWidth = 0
+    let canvasHeight = 0
+    let canvasDocumentLeft = 0
+    let canvasDocumentTop = 0
+    let canvasPixelRatio = 0
     let animationFrame = 0
+    let frameTimer = 0
+    let frameDueTime = 0
     let lastFrameTime = 0
     let lastAmbientFrameTime = 0
     let ambientPhase = 0
@@ -1053,6 +1108,10 @@ export function AsciiRippleField({
     let disposed = false
     let autonomousStep = 0
     let autonomousTimer = 0
+    let activeTouchPointerId = -1
+    let touchStartX = 0
+    let touchStartY = 0
+    let touchGestureIntent: 'pending' | 'horizontal' | 'vertical' = 'pending'
     let lastTouchDisturbanceTime = 0
     let routeIndices: number[] = []
     let routeIndexSet = new Set<number>()
@@ -1267,23 +1326,87 @@ export function AsciiRippleField({
       context.globalAlpha = 1
     }
 
-    const draw = () => {
-      const bounds = canvas.getBoundingClientRect()
-      context.clearRect(0, 0, bounds.width, bounds.height)
-      if (background === 'forest') {
-        drawForest()
-        return
+    const visibleTopographyRippleBounds = () => {
+      let firstColumn = columns
+      let firstRow = rows
+      let lastColumn = -1
+      let lastRow = -1
+
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const wave = currentField[row * columns + column] ?? 0
+          if (Math.abs(wave) <= TOPOGRAPHY_VISIBLE_WAVE) continue
+
+          firstColumn = Math.min(firstColumn, column)
+          firstRow = Math.min(firstRow, row)
+          lastColumn = Math.max(lastColumn, column)
+          lastRow = Math.max(lastRow, row)
+        }
       }
 
+      if (lastColumn < 0) return null
+      if (canvasPixelRatio <= 0) return null
+
+      const extra = 1 / canvasPixelRatio
+      const snapDown = (value: number) =>
+        Math.max(0, Math.floor(value * canvasPixelRatio) / canvasPixelRatio)
+      const snapUp = (value: number, maximum: number) =>
+        Math.min(
+          maximum,
+          Math.ceil(value * canvasPixelRatio) / canvasPixelRatio
+        )
+      firstColumn = Math.max(
+        0,
+        firstColumn - TOPOGRAPHY_DIRTY_COLUMN_PADDING
+      )
+      lastColumn = Math.min(
+        columns - 1,
+        lastColumn + TOPOGRAPHY_DIRTY_COLUMN_PADDING
+      )
+      firstRow = Math.max(0, firstRow - TOPOGRAPHY_DIRTY_ROW_PADDING)
+      lastRow = Math.min(rows - 1, lastRow + TOPOGRAPHY_DIRTY_ROW_PADDING)
+      const bounds = {
+        bottom: snapUp((lastRow + 1) * lineHeight + extra, canvasHeight),
+        left: snapDown(firstColumn * cellWidth - extra),
+        right: snapUp((lastColumn + 1) * cellWidth + extra, canvasWidth),
+        top: snapDown(firstRow * lineHeight - extra),
+      }
+
+      return bounds.right > bounds.left && bounds.bottom > bounds.top
+        ? bounds
+        : null
+    }
+
+    const paintNonForest = (dirtyBounds: PixelBounds | null) => {
       context.fillStyle =
         background === 'topography' ? topographyInk : asciiInk
       context.globalAlpha = 1
       context.textAlign = 'center'
       context.textBaseline = 'middle'
       let activeGlyphSize = 0
+      const firstPaintColumn =
+        dirtyBounds
+          ? clamp(Math.floor(dirtyBounds.left / cellWidth), 0, columns - 1)
+          : 0
+      const lastPaintColumn =
+        dirtyBounds
+          ? clamp(Math.ceil(dirtyBounds.right / cellWidth), 0, columns - 1)
+          : columns - 1
+      const firstPaintRow =
+        dirtyBounds
+          ? clamp(Math.floor(dirtyBounds.top / lineHeight), 0, rows - 1)
+          : 0
+      const lastPaintRow =
+        dirtyBounds
+          ? clamp(Math.ceil(dirtyBounds.bottom / lineHeight), 0, rows - 1)
+          : rows - 1
 
-      for (let row = 0; row < rows; row += 1) {
-        for (let column = 0; column < columns; column += 1) {
+      for (let row = firstPaintRow; row <= lastPaintRow; row += 1) {
+        for (
+          let column = firstPaintColumn;
+          column <= lastPaintColumn;
+          column += 1
+        ) {
           const index = row * columns + column
           if (routeIndexSet.has(index)) continue
           const wave = currentField[index] ?? 0
@@ -1371,7 +1494,6 @@ export function AsciiRippleField({
           )
         }
 
-        const bounds = canvas.getBoundingClientRect()
         context.globalAlpha = 1
         context.lineWidth = 2
         context.strokeStyle = routeInk
@@ -1379,32 +1501,32 @@ export function AsciiRippleField({
         context.lineJoin = 'round'
         context.textAlign = 'left'
         context.textBaseline = 'middle'
-        context.font = `500 ${bounds.width < 520 ? 9 : 11}px ${fontFamily}`
+        context.font = `500 ${canvasWidth < 520 ? 9 : 11}px ${fontFamily}`
 
         for (const node of routeNodes) {
-          const x = node.x * bounds.width
+          const x = node.x * canvasWidth
           const y =
             background === 'topography'
               ? node.y * Math.max(rows - 1, 1) * lineHeight +
                 lineHeight / 2
-              : node.y * bounds.height
-          const labelX = x + node.labelX * bounds.width
-          const labelY = y + node.labelY * bounds.height
+              : node.y * canvasHeight
+          const labelX = x + node.labelX * canvasWidth
+          const labelY = y + node.labelY * canvasHeight
 
           context.lineWidth = 2
           context.strokeStyle = routeInk
           context.beginPath()
-          context.arc(x, y, bounds.width < 520 ? 5 : 6, 0, Math.PI * 2)
+          context.arc(x, y, canvasWidth < 520 ? 5 : 6, 0, Math.PI * 2)
           context.stroke()
 
-          context.lineWidth = bounds.width < 520 ? 3 : 4
+          context.lineWidth = canvasWidth < 520 ? 3 : 4
           context.strokeStyle = canvasBackdrop
           context.strokeText(node.label, labelX, labelY)
           context.fillText(node.label, labelX, labelY)
         }
 
         context.fillStyle = routeInk
-        context.font = `600 ${bounds.width < 520 ? 12 : 14}px ${fontFamily}`
+        context.font = `600 ${canvasWidth < 520 ? 12 : 14}px ${fontFamily}`
         const implementNode = routeNodes[2]
         const reviewNode = routeNodes[3]
         if (implementNode && reviewNode) {
@@ -1412,16 +1534,16 @@ export function AsciiRippleField({
             background === 'topography'
               ? node.y * Math.max(rows - 1, 1) * lineHeight +
                 lineHeight / 2
-              : node.y * bounds.height
+              : node.y * canvasHeight
           context.fillText(
             '↑',
-            implementNode.x * bounds.width,
-            nodeY(implementNode) + 0.035 * bounds.height
+            implementNode.x * canvasWidth,
+            nodeY(implementNode) + 0.035 * canvasHeight
           )
           context.fillText(
             '←',
-            (reviewNode.x - 0.035) * bounds.width,
-            nodeY(reviewNode) + 0.015 * bounds.height
+            (reviewNode.x - 0.035) * canvasWidth,
+            nodeY(reviewNode) + 0.015 * canvasHeight
           )
         }
       }
@@ -1429,12 +1551,90 @@ export function AsciiRippleField({
       context.globalAlpha = 1
     }
 
+    const draw = (forceFull = false) => {
+      if (background === 'forest') {
+        context.clearRect(0, 0, canvasWidth, canvasHeight)
+        drawForest()
+        return
+      }
+
+      if (background !== 'topography' || forceFull) {
+        context.clearRect(0, 0, canvasWidth, canvasHeight)
+        paintNonForest(null)
+        previousVisibleRippleBounds =
+          background === 'topography'
+            ? visibleTopographyRippleBounds()
+            : null
+        return
+      }
+
+      const currentBounds = visibleTopographyRippleBounds()
+      const previousBounds = previousVisibleRippleBounds
+      previousVisibleRippleBounds = currentBounds
+      if (!currentBounds && !previousBounds) return
+
+      const dirtyBounds =
+        currentBounds && previousBounds
+          ? {
+              bottom: Math.max(currentBounds.bottom, previousBounds.bottom),
+              left: Math.min(currentBounds.left, previousBounds.left),
+              right: Math.max(currentBounds.right, previousBounds.right),
+              top: Math.min(currentBounds.top, previousBounds.top),
+            }
+          : (currentBounds ?? previousBounds)!
+      const fullPaint =
+        (dirtyBounds.right - dirtyBounds.left) *
+          (dirtyBounds.bottom - dirtyBounds.top) >=
+          canvasWidth * canvasHeight * TOPOGRAPHY_FULL_PAINT_RATIO
+
+      if (fullPaint) {
+        context.clearRect(0, 0, canvasWidth, canvasHeight)
+        paintNonForest(null)
+        return
+      }
+
+      context.save()
+      context.beginPath()
+      context.rect(
+        dirtyBounds.left,
+        dirtyBounds.top,
+        dirtyBounds.right - dirtyBounds.left,
+        dirtyBounds.bottom - dirtyBounds.top
+      )
+      context.clip()
+      context.clearRect(
+        dirtyBounds.left,
+        dirtyBounds.top,
+        dirtyBounds.right - dirtyBounds.left,
+        dirtyBounds.bottom - dirtyBounds.top
+      )
+      paintNonForest(dirtyBounds)
+      context.restore()
+    }
+
     const stepSimulation = () => {
       let maximumEnergy = 0
       const nextField = previousField
+      const damping = coarsePointer.matches ? MOBILE_DAMPING : DAMPING
+      const simulationFirstColumn =
+        background === 'forest' ? forestPhysicsFirstColumn : 1
+      const simulationLastColumn =
+        background === 'forest' ? forestPhysicsLastColumn : columns - 2
+      const simulationFirstRow =
+        background === 'forest' ? forestPhysicsFirstRow : 1
+      const simulationLastRow =
+        background === 'forest' ? forestPhysicsLastRow : rows - 2
 
-      for (let row = 1; row < rows - 1; row += 1) {
-        for (let column = 1; column < columns - 1; column += 1) {
+      for (
+        let row = simulationFirstRow;
+        row <= simulationLastRow;
+        row += 1
+      ) {
+        for (
+          let column = simulationFirstColumn;
+          column <= simulationLastColumn;
+          column += 1
+        ) {
           const index = row * columns + column
           const nextValue =
             ((currentField[index - 1] +
@@ -1443,7 +1643,7 @@ export function AsciiRippleField({
               currentField[index + columns]) *
               0.5 -
               previousField[index]) *
-            DAMPING
+            damping
 
           nextField[index] = nextValue
           maximumEnergy = Math.max(maximumEnergy, Math.abs(nextValue))
@@ -1455,10 +1655,60 @@ export function AsciiRippleField({
       latestEnergy = maximumEnergy
     }
 
-    const scheduleFrame = () => {
-      if (!animationFrame && canAnimate()) {
+    const frameIntervalForCurrentState = () =>
+      latestEnergy > SETTLED_ENERGY
+        ? coarsePointer.matches
+          ? MOBILE_TOUCH_FRAME_INTERVAL
+          : RIPPLE_FRAME_INTERVAL
+        : background === 'forest'
+          ? coarsePointer.matches
+            ? MOBILE_FOREST_FRAME_INTERVAL
+            : FOREST_FRAME_INTERVAL
+          : AMBIENT_FRAME_INTERVAL
+
+    const cancelFrameSchedule = () => {
+      if (frameTimer) {
+        window.clearTimeout(frameTimer)
+        frameTimer = 0
+        frameDueTime = 0
+      }
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame)
+        animationFrame = 0
+      }
+    }
+
+    const requestScheduledFrame = () => {
+      frameTimer = 0
+      frameDueTime = 0
+      if (canAnimate() && !animationFrame) {
         animationFrame = requestAnimationFrame(tick)
       }
+    }
+
+    const scheduleFrame = () => {
+      if (!canAnimate() || animationFrame) return
+
+      const now = performance.now()
+      const frameInterval = frameIntervalForCurrentState()
+      const delay =
+        lastFrameTime === 0
+          ? 0
+          : Math.max(0, frameInterval - (now - lastFrameTime))
+      const dueTime = now + delay
+
+      if (frameTimer && frameDueTime <= dueTime) return
+      if (frameTimer) window.clearTimeout(frameTimer)
+
+      if (delay === 0) {
+        frameTimer = 0
+        frameDueTime = 0
+        animationFrame = requestAnimationFrame(tick)
+        return
+      }
+
+      frameDueTime = dueTime
+      frameTimer = window.setTimeout(requestScheduledFrame, delay)
     }
 
     const tick = (time: number) => {
@@ -1466,25 +1716,13 @@ export function AsciiRippleField({
       if (!canAnimate()) return
 
       const rippleActive = latestEnergy > SETTLED_ENERGY
-      const frameInterval = rippleActive
-        ? RIPPLE_FRAME_INTERVAL
-        : background === 'forest'
-          ? FOREST_FRAME_INTERVAL
-          : AMBIENT_FRAME_INTERVAL
-
-      if (time - lastFrameTime < frameInterval) {
-        scheduleFrame()
-        return
-      }
+      const frameInterval = frameIntervalForCurrentState()
 
       const elapsed =
         lastFrameTime === 0 ? frameInterval : time - lastFrameTime
       lastFrameTime = time
       if (background === 'forest') {
-        forestPhase += Math.min(
-          elapsed / 1000,
-          FOREST_FRAME_INTERVAL / 1000
-        )
+        forestPhase += Math.min(elapsed / 1000, frameInterval / 1000)
       }
 
       if (
@@ -1523,38 +1761,80 @@ export function AsciiRippleField({
       }
     }
 
-    const resize = () => {
+    const resize = (refreshFontMetrics = false) => {
       const bounds = canvas.getBoundingClientRect()
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75)
+      const width = bounds.width
+      const height = bounds.height
+      const sizeChanged =
+        width !== canvasWidth ||
+        height !== canvasHeight ||
+        pixelRatio !== canvasPixelRatio
+
+      canvasDocumentLeft = bounds.left + window.scrollX
+      canvasDocumentTop = bounds.top + window.scrollY
+
+      if (!sizeChanged) {
+        if (refreshFontMetrics) {
+          fontFamily = getComputedStyle(canvas).fontFamily
+          draw(true)
+        }
+        return
+      }
+
+      canvasWidth = width
+      canvasHeight = height
+      canvasPixelRatio = pixelRatio
+
       if (background === 'forest') {
-        const forest = createForestCells(bounds.width, bounds.height)
+        const forest = createForestCells(canvasWidth, canvasHeight)
         cellWidth = forest.cellWidth
         lineHeight = forest.lineHeight
         forestCells = forest.cells
+        forestPhysicsFirstColumn = clamp(
+          forest.paintFirstColumn - FOREST_PHYSICS_PADDING,
+          1,
+          FOREST_ASCII_WIDTH - 2
+        )
+        forestPhysicsFirstRow = clamp(
+          forest.paintFirstRow - FOREST_PHYSICS_PADDING,
+          1,
+          FOREST_ASCII_HEIGHT + TOP_FILLER_ROWS - 2
+        )
+        forestPhysicsLastColumn = clamp(
+          forest.paintLastColumn + FOREST_PHYSICS_PADDING,
+          forestPhysicsFirstColumn,
+          FOREST_ASCII_WIDTH - 2
+        )
+        forestPhysicsLastRow = clamp(
+          forest.paintLastRow + FOREST_PHYSICS_PADDING,
+          forestPhysicsFirstRow,
+          FOREST_ASCII_HEIGHT + TOP_FILLER_ROWS - 2
+        )
         forestOffsetX = forest.offsetX
         forestOffsetY = forest.offsetY
       } else if (background === 'topography') {
-        cellWidth = bounds.width < 520 ? 6 : 7
-        lineHeight = bounds.width < 520 ? 9 : 10
+        cellWidth = canvasWidth < 520 ? 6 : 7
+        lineHeight = canvasWidth < 520 ? 9 : 10
       } else {
-        cellWidth = bounds.width < 520 ? 9 : 11
-        lineHeight = bounds.width < 520 ? 13 : 15
+        cellWidth = canvasWidth < 520 ? 9 : 11
+        lineHeight = canvasWidth < 520 ? 13 : 15
       }
       columns =
         background === 'forest'
           ? FOREST_ASCII_WIDTH
-          : Math.max(1, Math.floor(bounds.width / cellWidth))
+          : Math.max(1, Math.floor(canvasWidth / cellWidth))
       visibleRows =
         background === 'forest'
           ? FOREST_ASCII_HEIGHT
-          : Math.max(1, Math.floor(bounds.height / lineHeight))
+          : Math.max(1, Math.floor(canvasHeight / lineHeight))
       rows =
         background === 'forest' || background === 'topography'
           ? visibleRows + TOP_FILLER_ROWS
           : visibleRows
 
-      canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio))
-      canvas.height = Math.max(1, Math.round(bounds.height * pixelRatio))
+      canvas.width = Math.max(1, Math.round(canvasWidth * pixelRatio))
+      canvas.height = Math.max(1, Math.round(canvasHeight * pixelRatio))
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       fontFamily = getComputedStyle(canvas).fontFamily
 
@@ -1568,7 +1848,7 @@ export function AsciiRippleField({
           cellWidth,
           lineHeight,
           seed,
-          bounds.width < 640 ? 6 : 8,
+          canvasWidth < 640 ? 6 : 8,
           TOP_FILLER_ROWS
         )
         baseField = topography.heights
@@ -1577,12 +1857,13 @@ export function AsciiRippleField({
         baseField = createBaseField(columns, rows, ambientPhase)
         topographyCells = []
       }
+      previousVisibleRippleBounds = null
       currentField = new Float32Array(columns * rows)
       previousField = new Float32Array(columns * rows)
       latestEnergy = 0
 
       if (variant === 'workflow-route' && background !== 'forest') {
-        const compact = bounds.width < 640
+        const compact = canvasWidth < 640
         let templates = compact
           ? MOBILE_ROUTE_NODES
           : DESKTOP_ROUTE_NODES
@@ -1639,7 +1920,7 @@ export function AsciiRippleField({
         routeNodes = []
       }
 
-      draw()
+      draw(true)
     }
 
     const disturb = (
@@ -1649,14 +1930,23 @@ export function AsciiRippleField({
       strength = DISTURBANCE_STRENGTH,
       maximum = MAX_DISTURBANCE
     ) => {
+      const firstTargetColumn =
+        background === 'forest' ? forestPhysicsFirstColumn : 1
+      const lastTargetColumn =
+        background === 'forest' ? forestPhysicsLastColumn : columns - 2
+      const firstTargetRow =
+        background === 'forest' ? forestPhysicsFirstRow : 1
+      const lastTargetRow =
+        background === 'forest' ? forestPhysicsLastRow : rows - 2
+
       for (
-        let targetRow = Math.max(1, row - radius);
-        targetRow <= Math.min(rows - 2, row + radius);
+        let targetRow = Math.max(firstTargetRow, row - radius);
+        targetRow <= Math.min(lastTargetRow, row + radius);
         targetRow += 1
       ) {
         for (
-          let targetColumn = Math.max(1, column - radius);
-          targetColumn <= Math.min(columns - 2, column + radius);
+          let targetColumn = Math.max(firstTargetColumn, column - radius);
+          targetColumn <= Math.min(lastTargetColumn, column + radius);
           targetColumn += 1
         ) {
           const distance = Math.hypot(
@@ -1686,46 +1976,75 @@ export function AsciiRippleField({
     }
 
     const disturbAtPointer = (event: PointerEvent) => {
-      const bounds = canvas.getBoundingClientRect()
+      const pointerX = event.pageX - canvasDocumentLeft
+      const pointerY = event.pageY - canvasDocumentTop
       const column =
         background === 'forest'
-          ? Math.floor(
-              (event.clientX - bounds.left - forestOffsetX) / cellWidth
-            )
-          : Math.floor(
-              ((event.clientX - bounds.left) / bounds.width) * columns
-            )
+          ? Math.floor((pointerX - forestOffsetX) / cellWidth)
+          : Math.floor((pointerX / canvasWidth) * columns)
       const row =
         background === 'forest'
-          ? Math.floor(
-              (event.clientY - bounds.top - forestOffsetY) / lineHeight
-            )
+          ? Math.floor((pointerY - forestOffsetY) / lineHeight)
           : background === 'topography'
-            ? Math.floor((event.clientY - bounds.top) / lineHeight)
-          : Math.floor(
-              ((event.clientY - bounds.top) / bounds.height) * rows
-            )
+            ? Math.floor(pointerY / lineHeight)
+            : Math.floor((pointerY / canvasHeight) * rows)
 
-      disturb(
-        clamp(column, 1, Math.max(1, columns - 2)),
-        clamp(row, 1, Math.max(1, rows - 2))
-      )
+      const targetColumn = clamp(column, 1, Math.max(1, columns - 2))
+      const targetRow = clamp(row, 1, Math.max(1, rows - 2))
+
+      if (event.pointerType === 'touch') {
+        disturb(
+          targetColumn,
+          targetRow,
+          MOBILE_TOUCH_RADIUS,
+          MOBILE_TOUCH_STRENGTH,
+          MOBILE_TOUCH_MAX_DISTURBANCE
+        )
+      } else {
+        disturb(targetColumn, targetRow)
+      }
     }
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.pointerType !== 'touch' || !canAnimate()) {
         return
       }
+      if (
+        activeTouchPointerId !== -1 &&
+        activeTouchPointerId !== event.pointerId
+      ) {
+        return
+      }
 
-      lastTouchDisturbanceTime = event.timeStamp
-      disturbAtPointer(event)
+      activeTouchPointerId = event.pointerId
+      touchStartX = event.clientX
+      touchStartY = event.clientY
+      touchGestureIntent = 'pending'
+      lastTouchDisturbanceTime = 0
     }
 
     const handlePointerMove = (event: PointerEvent) => {
       if (!canAnimate()) return
 
       if (event.pointerType === 'touch') {
+        if (event.pointerId !== activeTouchPointerId) return
+
+        const horizontalTravel = Math.abs(event.clientX - touchStartX)
+        const verticalTravel = Math.abs(event.clientY - touchStartY)
+        if (touchGestureIntent === 'pending') {
+          if (
+            Math.max(horizontalTravel, verticalTravel) <
+            MOBILE_TOUCH_PAN_THRESHOLD
+          ) {
+            return
+          }
+          touchGestureIntent =
+            verticalTravel > horizontalTravel ? 'vertical' : 'horizontal'
+        }
+        if (touchGestureIntent === 'vertical') return
+
         if (
+          lastTouchDisturbanceTime > 0 &&
           event.timeStamp - lastTouchDisturbanceTime <
           MOBILE_TOUCH_FRAME_INTERVAL
         ) {
@@ -1737,13 +2056,41 @@ export function AsciiRippleField({
       disturbAtPointer(event)
     }
 
+    const resetTouchGesture = () => {
+      activeTouchPointerId = -1
+      touchGestureIntent = 'pending'
+      lastTouchDisturbanceTime = 0
+    }
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (
+        event.pointerType === 'touch' &&
+        event.pointerId === activeTouchPointerId
+      ) {
+        if (touchGestureIntent === 'pending' && canAnimate()) {
+          disturbAtPointer(event)
+        }
+        resetTouchGesture()
+      }
+    }
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (
+        event.pointerType === 'touch' &&
+        event.pointerId === activeTouchPointerId
+      ) {
+        resetTouchGesture()
+      }
+    }
+
     const addAutonomousDisturbance = () => {
       if (
         background === 'forest' ||
         !coarsePointer.matches ||
         !canAnimate() ||
         columns < 3 ||
-        rows < 3
+        rows < 3 ||
+        latestEnergy > SETTLED_ENERGY
       ) {
         return
       }
@@ -1766,52 +2113,80 @@ export function AsciiRippleField({
       )
     }
 
-    const handleVisibilityChange = () => {
-      if (document.hidden && animationFrame) {
-        cancelAnimationFrame(animationFrame)
-        animationFrame = 0
-      } else if (!document.hidden) {
-        lastFrameTime = 0
-        lastAmbientFrameTime = 0
-        draw()
-        scheduleFrame()
+    const cancelAutonomousTimer = () => {
+      if (autonomousTimer) {
+        window.clearTimeout(autonomousTimer)
+        autonomousTimer = 0
       }
     }
 
-    const handleMotionPreferenceChange = () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame)
-        animationFrame = 0
+    const scheduleAutonomousDisturbance = () => {
+      if (
+        autonomousTimer ||
+        background === 'forest' ||
+        !coarsePointer.matches ||
+        !canAnimate()
+      ) {
+        return
       }
 
+      autonomousTimer = window.setTimeout(() => {
+        autonomousTimer = 0
+        addAutonomousDisturbance()
+        scheduleAutonomousDisturbance()
+      }, MOBILE_AUTONOMOUS_INTERVAL)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelFrameSchedule()
+        cancelAutonomousTimer()
+        return
+      }
+
+      lastFrameTime = 0
+      lastAmbientFrameTime = 0
+      draw()
+      scheduleFrame()
+      scheduleAutonomousDisturbance()
+    }
+
+    const handleMotionPreferenceChange = () => {
+      cancelFrameSchedule()
+      cancelAutonomousTimer()
       currentField.fill(0)
       previousField.fill(0)
       latestEnergy = 0
       lastFrameTime = 0
       lastAmbientFrameTime = 0
       autonomousStep = 0
+      activeTouchPointerId = -1
+      touchGestureIntent = 'pending'
       lastTouchDisturbanceTime = 0
       draw()
       scheduleFrame()
+      scheduleAutonomousDisturbance()
     }
 
-    const resizeObserver = new ResizeObserver(resize)
+    const resizeObserver = new ResizeObserver(() => resize())
     const themeObserver = new MutationObserver(() => {
       readCanvasPalette()
-      draw()
+      draw(true)
     })
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       isIntersecting = entry.isIntersecting
 
-      if (!isIntersecting && animationFrame) {
-        cancelAnimationFrame(animationFrame)
-        animationFrame = 0
-      } else if (isIntersecting) {
-        lastFrameTime = 0
-        lastAmbientFrameTime = 0
-        draw()
-        scheduleFrame()
+      if (!isIntersecting) {
+        cancelFrameSchedule()
+        cancelAutonomousTimer()
+        return
       }
+
+      lastFrameTime = 0
+      lastAmbientFrameTime = 0
+      draw()
+      scheduleFrame()
+      scheduleAutonomousDisturbance()
     })
 
     resizeObserver.observe(canvas)
@@ -1826,33 +2201,41 @@ export function AsciiRippleField({
     interactionSurface.addEventListener('pointermove', handlePointerMove, {
       passive: true,
     })
+    interactionSurface.addEventListener('pointerup', handlePointerUp, {
+      passive: true,
+    })
+    interactionSurface.addEventListener('pointercancel', handlePointerCancel, {
+      passive: true,
+    })
     document.addEventListener('visibilitychange', handleVisibilityChange)
     reducedMotion.addEventListener('change', handleMotionPreferenceChange)
     coarsePointer.addEventListener('change', handleMotionPreferenceChange)
-    autonomousTimer = window.setInterval(
-      addAutonomousDisturbance,
-      MOBILE_AUTONOMOUS_INTERVAL
-    )
     readCanvasPalette()
     resize()
     scheduleFrame()
+    scheduleAutonomousDisturbance()
 
     document.fonts.ready.then(() => {
       if (!disposed) {
-        resize()
+        resize(true)
         scheduleFrame()
       }
     })
 
     return () => {
       disposed = true
-      if (animationFrame) cancelAnimationFrame(animationFrame)
-      window.clearInterval(autonomousTimer)
+      cancelFrameSchedule()
+      cancelAutonomousTimer()
       resizeObserver.disconnect()
       themeObserver.disconnect()
       intersectionObserver.disconnect()
       interactionSurface.removeEventListener('pointerdown', handlePointerDown)
       interactionSurface.removeEventListener('pointermove', handlePointerMove)
+      interactionSurface.removeEventListener('pointerup', handlePointerUp)
+      interactionSurface.removeEventListener(
+        'pointercancel',
+        handlePointerCancel
+      )
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       reducedMotion.removeEventListener('change', handleMotionPreferenceChange)
       coarsePointer.removeEventListener('change', handleMotionPreferenceChange)
