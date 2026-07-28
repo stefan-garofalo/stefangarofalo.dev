@@ -24,10 +24,16 @@ export default function Page() {
             </h1>
             <div className="relative z-20 mt-6 max-w-[46ch] space-y-3 text-[clamp(13px,1vw,15px)] leading-[1.7] text-[var(--text-secondary)] max-[767px]:max-w-[38ch] max-[767px]:text-[13px]">
               <p>
-                I&apos;m a full-stack developer at Devpunks. I&apos;ve spent
-                four years working across the full stack, and these days
-                I&apos;m focused on AI-driven development and agent engineering
-                for real software teams.
+                I&apos;m a full-stack developer at{' '}
+                <a
+                  className="underline decoration-[var(--accent)] underline-offset-[0.2em] transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--accent)] motion-reduce:transition-none"
+                  href="https://devpunks.com"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Devpunks
+                </a>. I&apos;ve spent four years working across the full stack,
+                and these days I&apos;m focused on AI-driven development and
+                agent engineering for real software teams.
               </p>
               <p>
                 I write about what I learn along the way, from TypeScript and
