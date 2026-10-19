@@ -36,9 +36,15 @@ export default function Page() {
                 agent engineering for real software teams.
               </p>
               <p>
-                I write about what I learn along the way, from TypeScript and
-                Effect to agentic coding. I&apos;m passionate about programming
-                and science. Huge Effect fan. Football fan too.
+                Here I write about what I learn along the way. I&apos;m
+                passionate about programming and science. Huge{' '}
+                <a
+                  className="underline decoration-[var(--accent)] underline-offset-[0.2em] transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--accent)] motion-reduce:transition-none"
+                  href="https://effect.website/"
+                >
+                  Effect
+                </a>{' '}
+                fan. Football fan too.
               </p>
             </div>
             <span
